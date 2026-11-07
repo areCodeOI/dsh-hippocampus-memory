@@ -1,0 +1,34 @@
+# 功能概览
+
+本文汇总功能与 v0.2 管理面。新手先读 [START-HERE.md](START-HERE.md)。
+
+## 特性
+
+- **四层记忆**：`buffer` 短期缓冲 → `episodic` 情景 → `semantic` 语义固化 → `persona` 人格，衰减系数各不相同。
+- **最小事实原则**：一条记忆只存一件事；写入前自动查重，重复就强化，补充就合并，冲突就挂起等确认。
+- **不会无脑覆盖**：冲突信息单独存为 `conflict` 状态，保留旧记忆；确认后旧记忆标记 `superseded`，审计可追。
+- **睡眠回放**：按指数衰减重算权重，归档低价值记忆，把多条相似情景提炼成一条语义记忆，清理过期待删除项。
+- **7 天遗忘冷静期**：软删除后 7 天内被访问会自动恢复，到期才永久移除；人格记忆默认拒绝删除。
+- **中文检索**：内置中英混排分词（CJK 二元组 + 英文单词）；SQLite 用 FTS5，PostgreSQL 用 `tsvector` + GIN，无需分词服务。
+- **四种接入方式共用一份数据**：DSH 插件、MCP 进程、HTTP 进程可以同时读写同一个 WAL 数据库（跨机器时共享 PostgreSQL）。
+- **可迁移**：`export` / `import` JSON 快照，换机器、备份、审计都方便。
+- **自动召回**：DSH `agent/pre-step` 在每轮用户输入后自动检索相关记忆，并注入带来源标记的上下文；不再依赖模型主动想起调用 `memory_search`。
+- **可水平扩容**：`storage: postgres` + 共享 PostgreSQL；`SKIP LOCKED` 任务队列、跨进程回放租约、数据库级 `change_seq`；pgvector 精确向量检索失败时自动回退 SimHash。
+- **默认零第三方依赖**：SQLite 模式没有 native addon、没有云服务；只有启用 PostgreSQL 时才需要纯 JS 的 `pg` 包。
+
+## v0.2 可视化与运维
+
+v0.2 在 v0.1 的四层记忆内核上增加了完整的自托管管理面：
+
+- **WebUI**：Vue 3 + Element Plus 重做的现代观测台，包含总览、记忆库、记忆星图、记忆树、异步任务、审计日志、设置与权限七个页面。
+- **DSH 原生入口**：侧边栏「插件」旁的「记忆」按钮，打开 DSH 风格的管理面板；设置页也增加「记忆」分区。
+- **记忆星图**：Canvas 力导向图；节点按记忆层着色、大小按重要性，边表示巩固链、冲突、共享标签与词法相似度；支持拖拽、滚轮缩放、点击查看详情。
+- **记忆树**：按 `namespace → 记忆层 → 记忆` 展开，支持内容过滤与详情抽屉。
+- **REST API**：分页列表、图谱投影、异步任务、审计、API key、指标、导出导入。
+- **权限**：API key + `reader` / `writer` / `admin` 三级角色 + namespace 限制；bootstrap token；本机自动管理员。
+- **审计**：`audit_log` 记录操作者、角色、动作、路径、IP、状态、请求 ID 与详情。
+- **多模型嵌入**：OpenAI 兼容与 Ollama provider 可并配；FP32 + 4×16-bit SimHash 近似召回，异步回填；未配置时零开销。
+- **缓存**：搜索结果、图谱、查询向量 TTL+LRU；写操作按 `changeSeq` 失效。
+- **异步任务**：SQLite/PostgreSQL 任务队列 + lease + 重试 + 进度；PG 模式用 `FOR UPDATE SKIP LOCKED`，支持回放、嵌入回填、备份、维护。
+- **监控**：`/health`、`/ready`、`/api/monitor`、Prometheus `/metrics`，以及 UI 运行状态卡。
+- **可配置监听**：`--host 127.0.0.1|0.0.0.0|::`、`--port`，或环境变量；DSH 插件也可选择随进程启动 HTTP 服务。
