@@ -11,6 +11,7 @@ import { TOOL_DEFS, callTool, renderToolResult, memorySystemPrompt } from './lib
 import { resolveStorageConfig, storageLabel } from './lib/paths.js'
 import { createMemoryHttpServer, listen } from './lib/http.js'
 import { EmbeddingService } from './lib/embeddings.js'
+import { appendAutoRecall, extractUserText, shouldAutoRecall } from './lib/auto-recall.js'
 
 export const inject = ['tools']
 
@@ -96,6 +97,30 @@ export function apply(ctx, config = {}) {
         }),
       `hippocampus: tool ${def.name}`,
     )
+  }
+
+  if (config.autoRecall !== false) {
+    ctx.on('agent/pre-step', async ({ messages }, next) => {
+      const decision = await next()
+      if (decision.kind !== 'enter' || !Array.isArray(messages) || messages.length === 0) return decision
+      const text = extractUserText(messages)
+      if (!shouldAutoRecall(text)) return decision
+      try {
+        const result = store.search(text, {
+          limit: Math.min(8, Math.max(1, Number(config.autoRecallLimit) || 4)),
+          namespace: config.autoRecallNamespace || store.namespace,
+          mode: 'relevance',
+        })
+        const minScore = Math.max(0, Number(config.autoRecallMinScore) || 0.18)
+        const memories = (result.memories ?? []).filter((memory) => (memory.score ?? 0) >= minScore)
+        return appendAutoRecall(decision, memories, {
+          maxChars: Math.min(4000, Math.max(400, Number(config.autoRecallMaxChars) || 1200)),
+        })
+      } catch (error) {
+        console.warn('[hippocampus] auto recall failed:', error instanceof Error ? error.message : String(error))
+        return decision
+      }
+    })
   }
 
   if (config.injectPrompt !== false) {

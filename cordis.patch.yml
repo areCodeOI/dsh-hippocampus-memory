@@ -19,6 +19,11 @@
 #   pgvector:             是否尝试 pgvector 精确向量检索，默认 true（扩展不可用时自动回退）
 #   pgPoolMax:            worker 连接池上限，默认 4
 #   graphProvider:        projection（默认；从当前存储投影）| postgres（PostgreSQL 图投影）
+#   autoRecall:           每轮用户输入后自动召回相关记忆并注入上下文，默认 true
+#   autoRecallLimit:      自动召回条数，默认 4
+#   autoRecallMaxChars:   自动召回上下文最大字符数，默认 1200
+#   autoRecallMinScore:   自动召回最低相关分，默认 0.18
+#   autoRecallNamespace:  自动召回 namespace，默认当前 namespace；可用 *
 #   namespace:            默认命名空间（多 agent 隔离用），默认 default
 #   injectPrompt:         是否向系统提示词注入记忆规范，默认 true
 #   autoReplay:           是否在后台自动执行回放/衰减/巩固，默认 true
@@ -44,6 +49,11 @@
         pgvector: true
         pgPoolMax: 4
         graphProvider: projection
+        autoRecall: true
+        autoRecallLimit: 4
+        autoRecallMaxChars: 1200
+        autoRecallMinScore: 0.18
+        autoRecallNamespace: ''
         # 随 DSH 进程一起启动 WebUI / REST / MCP-over-HTTP 服务。
         # 若 7337 已被独立服务占用，插件会记录警告并继续使用已有服务。
         httpEnabled: true

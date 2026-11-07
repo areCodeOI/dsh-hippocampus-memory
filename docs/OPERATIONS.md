@@ -192,6 +192,7 @@ systemctl start hippocampus
 - FTS5 预分词（CJK 二元组）；搜索候选上限 250，图谱 200，列表 200。
 - 搜索/图谱缓存 15s，写操作按 `changeSeq` 失效。
 - 高频写场景减少 worker 数量；只让一个进程写、其他进程读。
+- 自动召回默认每轮用户输入执行一次本地词法检索（4 条、≤1200 字符），不调用外部 embedding；如果延迟敏感可调低 `autoRecallLimit` 或关闭 `autoRecall`。
 - 嵌入检索是 SimHash 近似候选 + 精确余弦；超大数据集可调大候选上限/换 pgvector。
 
 ## 8. PostgreSQL 水平扩容

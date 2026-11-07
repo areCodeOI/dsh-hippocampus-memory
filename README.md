@@ -51,6 +51,7 @@
 - **中文检索**：内置中英混排分词（CJK 二元组 + 英文单词）；SQLite 用 FTS5，PostgreSQL 用 `tsvector` + GIN，无需分词服务。
 - **四种接入方式共用一份数据**：DSH 插件、MCP 进程、HTTP 进程可以同时读写同一个 WAL 数据库（跨机器时共享 PostgreSQL）。
 - **可迁移**：`export` / `import` JSON 快照，换机器、备份、审计都方便。
+- **自动召回**：DSH `agent/pre-step` 在每轮用户输入后自动检索相关记忆，并注入带来源标记的上下文；不再依赖模型主动想起调用 `memory_search`。
 - **可水平扩容**：`storage: postgres` + 共享 PostgreSQL；`SKIP LOCKED` 任务队列、跨进程回放租约、数据库级 `change_seq`；pgvector 精确向量检索失败时自动回退 SimHash。
 - **默认零第三方依赖**：SQLite 模式没有 native addon、没有云服务；只有启用 PostgreSQL 时才需要纯 JS 的 `pg` 包。
 
@@ -97,7 +98,7 @@ weight = 原始重要性 × e^(−λ_kind × 距上次访问天数)
 ```bash
 cd /path/to/dsh-hippocampus-memory
 node bin/hippocampus.mjs --help
-npm test          # 56 个测试
+npm test          # 61 个测试
 ```
 
 默认数据库路径：`<插件目录>/.data/hippocampus/memory.db`；如果插件目录只读则回退 `$DSH_HOME/hippocampus/memory.db`。旧版 `$DSH_HOME/hippocampus/memory.db` 会自动兼容。
@@ -368,6 +369,11 @@ node bin/hippocampus.mjs import backup.json
         pgvector: true             # 扩展不可用时自动回退 SimHash
         pgPoolMax: 4
         graphProvider: projection  # projection | postgres
+        autoRecall: true           # 每轮自动召回并注入上下文
+        autoRecallLimit: 4
+        autoRecallMaxChars: 1200
+        autoRecallMinScore: 0.18
+        autoRecallNamespace: ''    # 空 = 当前 namespace；* = 全部
         namespace: default         # 默认记忆空间
         injectPrompt: true         # 是否注入记忆使用规范
         autoReplay: true           # 后台自动回放
@@ -642,7 +648,7 @@ npm test
 node --test --test-isolation=none test/*.test.mjs
 ```
 
-当前 56 个测试覆盖：
+当前 61 个测试覆盖：
 
 - store：写入/召回/中文标点、精确与近似查重、严格补充合并、数值冲突与确认解决、无匹配、衰减归档、待删除 7 天冷静期与永久清理、读取恢复、回放巩固幂等、namespace 隔离、导出导入、人格记忆删除保护、重要性推断、归档/待删除记忆重新写入时恢复、固化记忆被取代需显式确认、冲突事实在重复阈值以下也能被识别
 - MCP：initialize、tools/list、tools/call、resources、prompts、错误码、非法 JSON、重启后持久化
@@ -651,7 +657,8 @@ node --test --test-isolation=none test/*.test.mjs
 - auth：bootstrap、本地回环、key hash、角色、namespace、吊销、required 模式
 - jobs：领取/完成、失败重试、取消、lease 恢复、列表/统计/清理
 - embeddings：FP32/余弦/SimHash、OpenAI+Ollama 多 provider、混合召回、回填、查询缓存、禁用 no-op
-- plugin：8 个工具注册、DSH 会话来源、提示词注入开关、插件卸载时关闭数据库
+- plugin：8 个工具注册、DSH 会话来源、提示词注入开关、插件卸载时关闭数据库、自动召回 pre-step 注入
+- auto-recall：用户消息提取、斜杠命令跳过、上下文截断、来源标记、pre-step 注入
 - storage：SQLite 路径/目录、PostgreSQL 配置脱敏、SQL 占位符与 `INSERT OR IGNORE` 翻译、change_seq 持久化、跨进程租约、图 provider
 
 > Android/Termux 上 `node --test` 默认的进程隔离会因为 `process.execPath` 指向 linker 而失败，所以脚本固定使用 `--test-isolation=none`；MCP 测试内部用 `process.argv0` 启动子进程。
