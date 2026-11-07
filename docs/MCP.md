@@ -1,5 +1,9 @@
 # MCP 接入说明
 
+> **适合谁**：要接 Claude/Cursor/Cline 等 MCP 客户端的人
+> **难度**：入门～进阶 · **预计阅读**：10 分钟
+> **前置**：Node.js ≥ 22.13；会改 JSON 配置
+
 海马体记忆对外提供两条 MCP 通道：
 
 1. **stdio**：`bin/hippocampus-mcp.mjs`，适合 Claude Desktop / Code、Cursor、Cline、自研客户端。

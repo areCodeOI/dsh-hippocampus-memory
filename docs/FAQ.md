@@ -1,7 +1,9 @@
 # 常见问题
 
-按症状排查。新手先读 [START-HERE.md](START-HERE.md)。
+> **适合谁**：所有人：按症状排查
+> **难度**：入门 · **预计阅读**：3 分钟
 
+按症状排查。新手先读 [START-HERE.md](START-HERE.md)。
 
 **Q：为什么默认不用向量数据库？**
 A：本地优先：SQLite FTS5 + 二元组 + 重要性/近因加权在中文短事实场景已经够用。需要语义召回时配置嵌入 provider 即可；SQLite 用 BLOB + SimHash 分桶，PostgreSQL 可选 pgvector 精确余弦。

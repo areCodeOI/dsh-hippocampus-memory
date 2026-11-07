@@ -1,5 +1,11 @@
 # 架构与开发
 
+> **适合谁**：要改代码、做二次开发的人
+> **难度**：参考 · **预计阅读**：8 分钟
+> **前置**：熟悉 Node.js/模块结构
+
+一句话：给要改代码/做二次开发的人看的目录与测试说明。
+
 代码结构、测试与 Web 构建。
 
 ## 架构
@@ -98,6 +104,6 @@ npm install
 node node_modules/vite/bin/vite.js build --outDir ../web --emptyOutDir
 ```
 
-Android/Termux 上如果 `node_modules` 位于 `/storage` 会因 linker namespace 无法加载 Rollup native 模块：请在应用私有目录（如 `$TMPDIR/webapp-build`）安装依赖并构建，再把 `web/` 同步回包目录。构建脚本与说明见 `webapp/` 和 [docs/UI.md](UI.md)。
+Android/Termux 上如果 `node_modules` 位于 `/storage` 会因 linker namespace 无法加载 Rollup native 模块：请在应用私有目录（如 `$TMPDIR/webapp-build`）安装依赖并构建，再把 `web/` 同步回包目录。构建脚本与说明见 `webapp/` 和 [UI.md](UI.md)。
 
 不希望用 Vue 也可以只替换 `web/` 下的静态文件；后端只依赖 `/api/*`，不依赖前端框架。

@@ -1,12 +1,16 @@
 # 安全模型
 
+> **适合谁**：部署者、安全审查者
+> **难度**：进阶 · **预计阅读**：10 分钟
+> **前置**：了解 token/API key/反向代理概念
+
 本文描述 `dsh-hippocampus-memory` 自托管部署的信任边界、认证/授权、审计与加固建议。
 
 ## 1. 信任边界
 
 默认部署是**单机自托管**：
 
-- SQLite 文件在应用私有目录（默认 `$DSH_HOME/hippocampus/memory.db`，权限 600）。
+- SQLite 文件在应用私有目录（默认 `<插件>/.data/hippocampus/memory.db`；旧版 `$DSH_HOME/hippocampus/memory.db` 会自动沿用；权限 600）。
 - HTTP 服务默认只监听 `127.0.0.1`。
 - 没有云服务、没有外联；只有显式配置嵌入 provider 后才会向该 provider 发请求。
 - 本机回环等于操作者机器；能读数据库文件的本地进程基本可以绕过 API 直接读数据。

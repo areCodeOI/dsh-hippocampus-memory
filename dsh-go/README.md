@@ -1,5 +1,9 @@
 # dsh-go 原生界面（已合并进主插件）
 
+> **适合谁**：维护 dsh-go 手机端的人
+> **难度**：参考 · **预计阅读**：3 分钟
+> **前置**：读过 START-HERE/USE-DSH-GO
+
 原生界面不再是一个单独的包：仓库根目录的 `dsh-hippocampus-memory` 同时提供
 
 - Host 半侧：8 个 `memory_*` 工具、`agent/pre-step` 自动召回、HTTP/WebUI、MCP；

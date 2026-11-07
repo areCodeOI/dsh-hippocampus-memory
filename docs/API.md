@@ -1,5 +1,9 @@
 # HTTP / REST API
 
+> **适合谁**：要写程序接 REST 的开发者
+> **难度**：进阶 · **预计阅读**：15 分钟
+> **前置**：会 HTTP/JSON；最好读过 TOOLS
+
 由 `bin/hippocampus-http.mjs` 提供，默认 `http://127.0.0.1:7337`。
 
 ```bash

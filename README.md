@@ -2,8 +2,8 @@
 
 给 AI 的**跨会话长期记忆**：记住你的稳定偏好、禁忌、项目配置和踩坑结论，下次新对话还能想起来。数据默认存在你本机的 SQLite 里，不上传云端。
 
-> **第一次用？** 直接看 [docs/START-HERE.md](docs/START-HERE.md)（从零安装、验收、卸载）。
-> 不想记命令？看 [docs/AI-AUTOMATION.md](docs/AI-AUTOMATION.md)，复制一段话让 AI 帮你装。
+> **第一次用？** 直接看 [START-HERE.md](docs/START-HERE.md)（从零安装、验收、卸载）。
+> 不想记命令？看 [AI-AUTOMATION.md](docs/AI-AUTOMATION.md)，复制一段话让 AI 帮你装。
 > 全部文档按人群分类：[docs/README.md](docs/README.md)。
 
 ## 30 秒了解
@@ -17,10 +17,12 @@
 
 | 场景 | 命令 / 入口 |
 | --- | --- |
-| **dsh-go 手机 App**（推荐） | 在 dsh-go 会话里执行：<br>`dsh plugin --profile web add /sdcard/model/dsh-hippocampus-memory` |
-| **DSH 网页版 / 桌面端** | 在会话里：`plugin_manager(action="install_bundle", target="/绝对路径/dsh-hippocampus-memory")` |
-| **Claude / Cursor 等 MCP 客户端** | 在 MCP 配置里加 `node /绝对路径/bin/hippocampus-mcp.mjs`，见 [docs/MCP.md](docs/MCP.md) |
-| **自己写程序（HTTP）** | `node bin/hippocampus-http.mjs --port 7337`，接口见 [docs/API.md](docs/API.md) |
+| **dsh-go 手机 App**（推荐） | 在 dsh-go 会话里执行：<br>`dsh plugin --profile web add /path/to/dsh-hippocampus-memory` |
+| **DSH 网页版 / 桌面端** | 在会话里让 AI 执行：`plugin_manager(action="install_bundle", target="/绝对路径/dsh-hippocampus-memory")` |
+| **Claude / Cursor 等 MCP 客户端** | 在 MCP 配置里加 `node /绝对路径/bin/hippocampus-mcp.mjs`，见 [MCP.md](docs/MCP.md) |
+| **自己写程序（HTTP）** | `node bin/hippocampus-http.mjs --port 7337`，接口见 [API.md](docs/API.md) |
+
+> 上面的路径请换成你项目实际所在目录；不需要懂代码，按 [START-HERE.md](docs/START-HERE.md) 一步步做即可。
 
 装完在 dsh-go 里应看到：
 
@@ -45,13 +47,13 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 
 | 想做什么 | 去哪里 |
 | --- | --- |
-| 手机上看记忆/存记忆/回忆 | [docs/USE-DSH-GO.md](docs/USE-DSH-GO.md) |
-| 浏览器搜索/编辑/处理冲突/备份 | 打开 `http://127.0.0.1:7337/`，教程 [docs/USE-WEB.md](docs/USE-WEB.md) |
-| 让 AI 安装/体检/排障 | [docs/AI-AUTOMATION.md](docs/AI-AUTOMATION.md) |
-| 理解记忆模型/衰减/回放 | [docs/MEMORY-MODEL.md](docs/MEMORY-MODEL.md) |
-| 看 8 个工具参数 | [docs/TOOLS.md](docs/TOOLS.md) |
-| 调路径/端口/PostgreSQL/嵌入 | [docs/CONFIG.md](docs/CONFIG.md) |
-| 出问题按症状排查 | [docs/FAQ.md](docs/FAQ.md) |
+| 手机上看记忆/存记忆/回忆 | [USE-DSH-GO.md](docs/USE-DSH-GO.md) |
+| 浏览器搜索/编辑/处理冲突/备份 | 打开 `http://127.0.0.1:7337/`，教程 [USE-WEB.md](docs/USE-WEB.md) |
+| 让 AI 安装/体检/排障 | [AI-AUTOMATION.md](docs/AI-AUTOMATION.md) |
+| 理解记忆模型/衰减/回放 | [MEMORY-MODEL.md](docs/MEMORY-MODEL.md) |
+| 看 8 个工具参数 | [TOOLS.md](docs/TOOLS.md) |
+| 调路径/端口/PostgreSQL/嵌入 | [CONFIG.md](docs/CONFIG.md) |
+| 出问题按症状排查 | [FAQ.md](docs/FAQ.md) |
 
 完整文档导航（按“我是谁 / 我要做什么”分类）：[docs/README.md](docs/README.md)。
 
@@ -71,7 +73,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 - 默认只监听 `127.0.0.1`，不上传；但数据库**未加密**，依赖设备锁屏/文件权限。
 - 备份：WebUI「设置 → 导出」下载 JSON，或复制 `memory.db`（先停服务）。
 - 跨机访问务必设置 `HIPOCAMPUS_TOKEN`；CORS 默认只允许回环来源。
-- 详见 [docs/SECURITY.md](docs/SECURITY.md) 与 [docs/CONFIG.md](docs/CONFIG.md)。
+- 详见 [SECURITY.md](docs/SECURITY.md) 与 [CONFIG.md](docs/CONFIG.md)。
 
 ## 开发与测试
 

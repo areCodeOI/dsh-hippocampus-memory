@@ -1,7 +1,14 @@
 # 从零开始：安装并使用海马体记忆
 
-> 给完全没接触过 DSH 插件的人。照着做即可，不需要懂代码。
-> 更短的一页版在 [README](../README.md)，全部文档导航在 [docs/README](README.md)。
+> **适合谁**：完全没接触过的新手
+> **难度**：入门 · **预计阅读**：15 分钟
+> **前置**：Android 手机 + dsh-go，或电脑上的 DSH；会复制粘贴即可
+
+> 给完全没接触过 DSH 插件的人。照着做即可，**不需要懂代码**。
+> 更短的一页版在 [README](../README.md)；全部文档导航在 [docs/README](README.md)；看不懂的词见 [第 10 节](#10-术语速查)。
+
+先认识三个词：**DSH** 是能调用 AI 的对话工具；**dsh-go** 是它的 Android 手机 App；
+**插件**是给 AI 增加能力的小程序（本文装的就是“长期记忆”能力）。
 
 ## 1. 这是什么，能帮你做什么
 
@@ -41,7 +48,7 @@
 
 **方法 A：让 AI 帮你装（最省事）**
 
-1. 在 dsh-go 里新建一个对话。
+1. 在 dsh-go 里新建一个**普通对话**（不要用「伙伴」角色；它没有工具权限）。
 2. 把下面整段话复制进去发送：
 
 ```text
@@ -96,15 +103,17 @@ AI 会自己决定是否调用记忆工具；你也可以在插件面板里看�
 
 ## 4. 在 DSH Web / 桌面端安装
 
-如果你用的是电脑上的 DSH 网页版/桌面端：
+如果你用的是电脑上的 DSH 网页版/桌面端，**不需要自己敲命令**：
 
-1. 打开 DSH，在会话里输入：
+1. 打开 DSH，新建对话，发送：
 
 ```text
-plugin_manager(action="install_bundle", target="/绝对路径/dsh-hippocampus-memory")
+请帮我安装海马体记忆插件，项目路径是 /绝对路径/dsh-hippocampus-memory。
+用 plugin_manager(action="install_bundle", target="/绝对路径/dsh-hippocampus-memory")
+安装；需要重启/刷新就告诉我；装完用 memory_stats 确认可用。
 ```
 
-2. 按提示重启/刷新 DSH。
+2. 按 AI 的提示重启/刷新 DSH。
 3. 侧边栏「插件」旁会出现「记忆」入口；设置页会多一个「记忆」分区。
 4. 同样用 `memory_stats` 检查，或者打开 `http://127.0.0.1:7337/` 看 WebUI。
 
@@ -112,9 +121,11 @@ plugin_manager(action="install_bundle", target="/绝对路径/dsh-hippocampus-me
 
 ## 5. 接入 Claude / Cursor 等 MCP 客户端
 
-前提：电脑上装了 **Node.js ≥ 22.13**（终端执行 `node -v` 能看到版本）。
+前提：电脑上装了 **Node.js ≥ 22.13**（不会看版本就把这句话发给 AI 让它检查）。
 
-1. 下载/解压本项目，记住路径，例如 `/Users/you/dsh-hippocampus-memory`。
+1. 下载/解压本项目，记住路径。示例：
+   - macOS/Linux：`/Users/you/dsh-hippocampus-memory`
+   - Windows：`C:\Users\you\dsh-hippocampus-memory`（JSON 里反斜杠要写成 `\\`）
 2. 在客户端的 MCP 配置里加入：
 
 ```json
@@ -129,7 +140,14 @@ plugin_manager(action="install_bundle", target="/绝对路径/dsh-hippocampus-me
 ```
 
 3. 重启客户端，确认出现 8 个 `memory_*` 工具。
+
+> 找不到配置文件在哪：Claude Desktop 一般在「设置 → 开发者 → 编辑配置」；
+> Cursor 在「设置 → MCP / Tools」；不同版本菜单可能不同，找不到就问 AI：
+> “{{客户端}} 的 MCP 配置文件在哪里？帮我加一个 node server”。
 4. 让 AI 执行 `memory_add` 写一条，再 `memory_search` 搜回来。
+
+> 不会写 JSON？把客户端名称和项目路径发给 AI，让它按
+> [AI-AUTOMATION.md 第 3 节](AI-AUTOMATION.md#3-场景-c让-ai-接入-claude--cursor-等-mcp-客户端) 生成配置。
 
 完整说明见 [MCP.md](MCP.md)。
 
@@ -176,3 +194,20 @@ dsh plugin --profile web remove dsh-hippocampus-memory
 ```
 
 卸载不会删除 `.data/hippocampus/memory.db`；想彻底清空再手动删这个文件。
+
+## 10. 术语速查
+
+| 词 | 大白话 |
+| --- | --- |
+| DSH | 能调用 AI 的对话工具 |
+| dsh-go | DSH 的 Android 手机 App |
+| 插件 / Host 插件 | 给 AI 增加能力的小程序；本项目的插件给 AI 加“长期记忆” |
+| dsh-go 原生界面 | 手机 App 里的状态条、面板、长按菜单（和主插件同一个包） |
+| token | 一串访问口令；设了以后打开管理台/API 要填 |
+| MCP | 让 Claude/Cursor 等外部客户端也能用记忆工具的协议 |
+| namespace | 记忆空间，用来隔离不同项目/agent |
+| SQLite | 本机的小型数据库文件；记忆就存在里面 |
+| 7337 | Web 管理台默认端口，地址是 `http://127.0.0.1:7337/` |
+| profile | DSH 的“配置档案”；手机引擎用的是 `web` |
+| 冲突 | 新信息和旧记忆矛盾，先挂起等你确认，不会自动覆盖 |
+| 回放 | 按时间整理记忆：衰减、归档旧项、合并重复情景 |

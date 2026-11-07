@@ -1,5 +1,9 @@
 # dsh-go 手机端使用教程
 
+> **适合谁**：已装好插件的手机用户
+> **难度**：入门 · **预计阅读**：5 分钟
+> **前置**：已安装 dsh-hippocampus-memory
+
 > 适合已经装好插件的人。安装看 [START-HERE.md](START-HERE.md)。
 > 本文只讲手机 App 里的操作；网页管理看 [USE-WEB.md](USE-WEB.md)。
 

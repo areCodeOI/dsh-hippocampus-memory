@@ -1,5 +1,11 @@
 # 配置与部署
 
+> **适合谁**：部署者、想调路径/端口/数据库的人
+> **难度**：进阶 · **预计阅读**：10 分钟
+> **前置**：会用命令行、能改环境变量
+
+一句话：默认零配置就能用；要改数据位置、端口、数据库或嵌入时才需要本文。
+
 本文说明数据位置、配置项、权限与嵌入、异步任务以及部署扩容。
 
 ## 数据与持久化
@@ -24,7 +30,7 @@ $DSH_HOME/hippocampus/memory.db          旧版/回退位置（自动兼容）
 
 - **长期**：文件落盘，跨会话、跨重启、跨 DSH 升级保留。
 - **并发**：WAL 模式允许同一台机器上的 DSH 插件、MCP 进程、HTTP 进程同时读写；写操作串行、有 15 秒 busy timeout。
-- **水平扩容**：把 `storage` 设为 `postgres`（`pgUrl` 指向共享 PostgreSQL，可选 pgvector），多个 DSH/HTTP/MCP 实例共享同一份记忆；任务队列使用 `SKIP LOCKED`，回放使用跨进程租约，变更序号由数据库统一递增。详见 [docs/OPERATIONS.md](OPERATIONS.md#postgresql-水平扩容)。
+- **水平扩容**：把 `storage` 设为 `postgres`（`pgUrl` 指向共享 PostgreSQL，可选 pgvector），多个 DSH/HTTP/MCP 实例共享同一份记忆；任务队列使用 `SKIP LOCKED`，回放使用跨进程租约，变更序号由数据库统一递增。详见 [OPERATIONS.md](OPERATIONS.md#8-postgresql-水平扩容)。
 - **默认位置**：SQLite 新库默认在 `<插件目录>/.data/hippocampus/memory.db`；旧版 `$DSH_HOME/hippocampus/memory.db` 自动兼容。也可用 `dataDir` / `HIPPOCAMPUS_DATA_DIR` / `--data-dir` 指定。
 - **备份**：
 
@@ -206,7 +212,7 @@ WantedBy=multi-user.target
 ### 容量与扩展边界
 
 - 单机 SQLite（WAL）适合**数万到数十万条**记忆、单写入者/少量并发写者的自托管场景；读不阻塞写。
-- 多实例/多机器：PostgreSQL + 可选 pgvector；详见 [docs/OPERATIONS.md](OPERATIONS.md#postgresql-水平扩容)。
+- 多实例/多机器：PostgreSQL + 可选 pgvector；详见 [OPERATIONS.md](OPERATIONS.md#8-postgresql-水平扩容)。
 - 列表分页、搜索上限、图谱节点上限、异步任务和缓存都是为大数据量准备的；不会一次性把全库塞进浏览器。
-- 水平扩展通过 PostgreSQL + 可选 pgvector 实现；图数据可选 projection/postgres，或通过 `registerGraphProvider()` 接入外部图数据库。部署细节见 [docs/OPERATIONS.md](OPERATIONS.md#postgresql-水平扩容)。
+- 水平扩展通过 PostgreSQL + 可选 pgvector 实现；图数据可选 projection/postgres，或通过 `registerGraphProvider()` 接入外部图数据库。部署细节见 [OPERATIONS.md](OPERATIONS.md#8-postgresql-水平扩容)。
 - PostgreSQL 下多实例同时跑 worker/回放是安全的（`SKIP LOCKED` + `leases`）；SQLite 写入仍以单机磁盘为限。
