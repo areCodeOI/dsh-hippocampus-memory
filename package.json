@@ -33,7 +33,8 @@
     "webapp/package.json",
     "webapp/vite.config.js",
     "webapp/index.html",
-    "webapp/public"
+    "webapp/public",
+    "dsh-go/"
   ],
   "scripts": {
     "test": "node --test --test-isolation=none test/*.test.mjs",

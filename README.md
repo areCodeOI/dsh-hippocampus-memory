@@ -130,6 +130,32 @@ memory_search →  {"query":"语言偏好"}
 
 > 插件与 MCP/HTTP 进程使用同一个数据库文件，所以从 DSH 写入的记忆，Claude/Cursor 通过 MCP 也能立刻搜到。
 
+### 2. 安装 dsh-go 手机原生界面
+
+`dsh-go/plugin/` 是一个 dsh-go 原生插件（不是 Cordis bundle），直接读写同一个记忆库：
+输入框上方状态条显示「记忆 N」、点开「海马体记忆」面板、长按助手消息「存进记忆」、
+输入框上方「回忆」胶囊、对话信息页「回放记忆」。它不依赖 7337 服务，引擎里直接打开 SQLite。
+
+```bash
+# 1) Host 插件（八个 memory_* 工具 + 自动召回 + WebUI/REST）
+dsh plugin --profile web add /path/to/dsh-hippocampus-memory
+# 2) dsh-go 原生界面
+dsh plugin --profile web add /path/to/dsh-hippocampus-memory/dsh-go/plugin
+```
+
+装完后在 dsh-go 里应看到：输入框上方状态条「记忆 N」；点它打开面板；长按一条回复出现「存进记忆」；
+输入框上方的「回忆」胶囊会把草稿和相关记忆一起放回输入框（不会自动发送）。
+
+原生插件的自检：
+
+```bash
+node "$DSH_HOME/skills/dsh-go-plugin/kit/bin/check.mjs" dsh-go/plugin --load
+```
+
+两个插件默认使用 `resolveStorageConfig()` 解析出的同一个库（当前是仓库下
+`.data/hippocampus/memory.db`；如果存在旧版 `$DSH_HOME/hippocampus/memory.db` 则自动沿用）。
+原生插件默认从本仓库向上三级定位代码，可用 `HIPOCAMPUS_REPO` 指向其他 checkout。
+
 ### 2. 接入 MCP 客户端
 
 MCP server 走 stdio，一行一个 JSON-RPC 消息；日志只写 stderr，不会污染协议。

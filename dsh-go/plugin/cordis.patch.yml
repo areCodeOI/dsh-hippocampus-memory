@@ -1,0 +1,5 @@
+# dsh-go 原生插件：除了 App 原生界面外，也作为普通 Host 插件插入（无副作用）。
+# id/name 必须与 package.json 的 name 一致。
+- insert:
+    - id: local-hippocampus-memory
+      name: local-hippocampus-memory
