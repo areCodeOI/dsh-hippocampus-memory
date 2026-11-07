@@ -12,6 +12,7 @@ import { resolveStorageConfig, storageLabel } from './lib/paths.js'
 import { createMemoryHttpServer, listen } from './lib/http.js'
 import { EmbeddingService } from './lib/embeddings.js'
 import { appendAutoRecall, extractUserText, shouldAutoRecall } from './lib/auto-recall.js'
+import { registerDshGoUi } from './lib/dsh-go-ui.js'
 import { vectorWeightFromEnv } from './lib/scoring.js'
 
 export const inject = ['tools']
@@ -53,6 +54,12 @@ export function apply(ctx, config = {}) {
   })
 
   ctx.effect(() => () => store.close(), 'hippocampus: close database')
+
+  // dsh-go 手机 App 的原生界面（与 Host 工具共用同一个 store）。没有 dsh-go
+  // 桥接时这里保持 pending，不影响 Web/桌面端。
+  ctx.inject(['dshGo'], (dctx) => {
+    if (dctx?.dshGo) registerDshGoUi(dctx, store)
+  })
 
   let embeddings = null
   try {

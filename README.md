@@ -98,7 +98,7 @@ weight = 原始重要性 × e^(−λ_kind × 距上次访问天数)
 ```bash
 cd /path/to/dsh-hippocampus-memory
 node bin/hippocampus.mjs --help
-npm test          # 69 个测试
+npm test          # 71 个测试
 ```
 
 默认数据库路径：`<插件目录>/.data/hippocampus/memory.db`；如果插件目录只读则回退 `$DSH_HOME/hippocampus/memory.db`。旧版 `$DSH_HOME/hippocampus/memory.db` 会自动兼容。
@@ -130,31 +130,79 @@ memory_search →  {"query":"语言偏好"}
 
 > 插件与 MCP/HTTP 进程使用同一个数据库文件，所以从 DSH 写入的记忆，Claude/Cursor 通过 MCP 也能立刻搜到。
 
-### 2. 安装 dsh-go 手机原生界面
+### 2. dsh-go 手机原生界面（与主插件同一个包）
 
-`dsh-go/plugin/` 是一个 dsh-go 原生插件（不是 Cordis bundle），直接读写同一个记忆库：
-输入框上方状态条显示「记忆 N」、点开「海马体记忆」面板、长按助手消息「存进记忆」、
-输入框上方「回忆」胶囊、对话信息页「回放记忆」。它不依赖 7337 服务，引擎里直接打开 SQLite。
+仓库根目录的 `dsh-hippocampus-memory` 同时声明了 `dshGo` 清单，安装一次即可同时得到
+Host 工具和 dsh-go 原生界面，不需要再装第二个包：
 
 ```bash
-# 1) Host 插件（八个 memory_* 工具 + 自动召回 + WebUI/REST）
 dsh plugin --profile web add /path/to/dsh-hippocampus-memory
-# 2) dsh-go 原生界面
-dsh plugin --profile web add /path/to/dsh-hippocampus-memory/dsh-go/plugin
 ```
 
-装完后在 dsh-go 里应看到：输入框上方状态条「记忆 N」；点它打开面板；长按一条回复出现「存进记忆」；
-输入框上方的「回忆」胶囊会把草稿和相关记忆一起放回输入框（不会自动发送）。
+装完后在 dsh-go 里应看到：输入框上方状态条「记忆 N」；点它打开「海马体记忆」面板；
+长按一条助手回复出现「存进记忆」；输入框上方「回忆」胶囊会把草稿和相关记忆一起放回输入框
+（不会自动发送）。dsh-go 的「插件」页只会有一个「海马体长期记忆」。
 
-原生插件的自检：
+原生界面与 Host 工具共用一个 `MemoryStore`，所以库路径、namespace、配置完全一致。
+具体行为见 [dsh-go/README.md](dsh-go/README.md)。
+
+## 记忆模型
+
+| 层 | 名称 | 存什么 | 默认重要性 | 衰减 λ/天 | 半衰期 |
+| --- | --- | --- | --- | --- | --- |
+| `buffer` | 短期缓冲 | 本次会话临时指令、临时偏好、未验证猜测 | 2 | 0.35 | ≈ 2 天 |
+| `episodic` | 情景记忆 | 何时/何地发生了什么、工具调用、报错踩坑、历史选择 | 4 | 0.08 | ≈ 9 天 |
+| `semantic` | 语义固化 | 多次验证后的稳定知识、固定事实、长期项目配置 | 6 | 0.005 | ≈ 139 天 |
+| `persona` | 人格记忆 | 用户稳定习惯、审美、偏好、禁忌、身体情况、底层诉求 | 8 | 0.001 | ≈ 693 天 |
+
+权重公式：
+
+```text
+weight = 原始重要性 × e^(−λ_kind × 距上次访问天数)
+```
+
+- **重要性**是事实本身的属性（0.1–10）；**权重**是它现在还有多重要。
+- 召回排序 ≈ 55% 文本相关 + 22% 当前权重 + 10% 近因 + 8% 置信度 + 5% 层权重。
+- 回放时：低权重旧 `buffer`/`episodic` 归档；长期无访问、低置信度的垃圾进入待删除；`semantic`/`persona` 不自动删除。
+
+## 快速开始
+
+要求：**Node.js ≥ 22.13**（需要内置 `node:sqlite`，本项目已在 Node 24 上测试）。
 
 ```bash
-node "$DSH_HOME/skills/dsh-go-plugin/kit/bin/check.mjs" dsh-go/plugin --load
+cd /path/to/dsh-hippocampus-memory
+node bin/hippocampus.mjs --help
+npm test          # 71 个测试
 ```
 
-两个插件默认使用 `resolveStorageConfig()` 解析出的同一个库（当前是仓库下
-`.data/hippocampus/memory.db`；如果存在旧版 `$DSH_HOME/hippocampus/memory.db` 则自动沿用）。
-原生插件默认从本仓库向上三级定位代码，可用 `HIPOCAMPUS_REPO` 指向其他 checkout。
+默认数据库路径：`<插件目录>/.data/hippocampus/memory.db`；如果插件目录只读则回退 `$DSH_HOME/hippocampus/memory.db`。旧版 `$DSH_HOME/hippocampus/memory.db` 会自动兼容。
+可以用 `--db`、`HIPPOCAMPUS_DB` 或插件配置 `dbPath` 覆盖。
+
+### 1. 安装为 DSH 插件
+
+本目录就是一个 DSH bundle（`package.json` 的 `dsh.bundle.patch` 指向 `cordis.patch.yml`）。
+在 DSH 会话里让 agent 执行：
+
+```text
+plugin_manager(action="install_bundle", target="/absolute/path/to/dsh-hippocampus-memory")
+```
+
+安装后当前 profile 会多一行 `hippocampus-memory`，注册八个 `memory_*` 工具、注入一段简短记忆规范，
+并在 DSH 侧边栏「插件」旁增加「记忆」入口；重启/刷新 DSH 后出现（DSH 设置页也会多一个「记忆」分区）。
+本地目录安装是 **link**：请把本目录放在一个长期稳定的位置，不要安装后删除或移动，否则插件会失效。
+升级本地代码后，若插件管理提示 `restart-required`，重启一次 DSH 即可加载新模块；WebUI/REST 进程可独立运行最新代码。
+`httpEnabled` 默认 `true`：插件会尝试随 DSH 进程启动 WebUI/REST（默认 `127.0.0.1:7337`）；若端口已被独立服务占用，会记录警告并继续使用已有服务。
+插件配置可以在 profile 的 `cordis.patch.yml` 里用同 id 覆盖（见[配置项](#配置项)），或直接改本目录的 `cordis.patch.yml` 后重启 DSH。
+
+安装后自检：
+
+```text
+memory_stats  →  totals.all 应为 0（新库）
+memory_add    →  {"content":"用户偏好简体中文。","kind":"persona","importance":9}
+memory_search →  {"query":"语言偏好"}
+```
+
+> 插件与 MCP/HTTP 进程使用同一个数据库文件，所以从 DSH 写入的记忆，Claude/Cursor 通过 MCP 也能立刻搜到。
 
 ### 2. 接入 MCP 客户端
 
@@ -679,7 +727,7 @@ node --test --test-isolation=none test/*.test.mjs
 node test/smoke-runtime.mjs
 ```
 
-当前 69 个测试覆盖：
+当前 71 个测试覆盖：
 
 - store：写入/召回/中文标点、精确与近似查重、严格补充合并、数值冲突与确认解决、无匹配、衰减归档、待删除 7 天冷静期与永久清理、读取恢复、回放巩固幂等、namespace 隔离、导出导入、人格记忆删除保护、重要性推断、归档/待删除记忆重新写入时恢复、固化记忆被取代需显式确认、冲突事实在重复阈值以下也能被识别
 - MCP：initialize、tools/list、tools/call、resources、prompts、错误码、非法 JSON、重启后持久化
@@ -692,6 +740,7 @@ node test/smoke-runtime.mjs
 - auto-recall：用户消息提取、斜杠命令跳过、上下文截断、来源标记、pre-step 注入
 - storage：SQLite 路径/目录、PostgreSQL 配置脱敏、SQL 占位符与 `INSERT OR IGNORE` 翻译、change_seq 持久化、跨进程租约、图 provider
 - 回归：GET /mcp 不再打死进程、只读端点 405、CORS 仅回环源、Prometheus TYPE 完整、否定事实冲突、任务重试退避、向量权重 `0` 可关闭混合检索
+- dsh-go：`dshGo` 清单里的每个入口都有对应注册；存进记忆/回忆/面板共用同一个 store
 
 > Android/Termux 上 `node --test` 默认的进程隔离会因为 `process.execPath` 指向 linker 而失败，所以脚本固定使用 `--test-isolation=none`；MCP 测试内部用 `process.argv0` 启动子进程。
 
