@@ -3,8 +3,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, test } from 'node:test'
-import { apply } from '../index.js'
+import { apply, resolveLanguage } from '../index.js'
 import { TOOL_NAMES } from '../lib/tools.js'
+import { DatabaseSync } from 'node:sqlite'
 
 const dirs = []
 
@@ -133,4 +134,47 @@ test('plugin: tools are disposed and the database is closed with the plugin', as
   for (const effect of effects) if (typeof effect === 'function') effect()
   assert.equal(tools.size, 0)
   await assert.rejects(add.execute({ content: '写不进去了。' }, {}))
+})
+
+test('plugin: promptLanguage auto resolves en for English locales and defaults to zh', () => {
+  assert.equal(resolveLanguage({ promptLanguage: 'auto' }, { LANG: 'zh_CN.UTF-8' }), 'zh')
+  assert.equal(resolveLanguage({ promptLanguage: 'auto' }, { DSH_LANG: 'en-US', LANG: 'en_US.UTF-8' }), 'en')
+  assert.equal(resolveLanguage({ promptLanguage: 'auto' }, { LANG: 'C.UTF-8' }), 'zh')
+  assert.equal(resolveLanguage({ promptLanguage: 'en' }, { LANG: 'zh_CN.UTF-8' }), 'en')
+  assert.equal(resolveLanguage({ promptLanguage: 'zh' }, { LANG: 'en_US.UTF-8' }), 'zh')
+})
+
+test('plugin: auto-recall does not refresh access stats and survives long messages', async () => {
+  const { ctx, tools, handlers } = fakeContext()
+  const dbPath = tempDb()
+  apply(ctx, { dbPath, autoReplay: false, injectPrompt: false, autoRecall: true })
+  const added = await tools.get('memory_add').execute(
+    { content: '用户对花生严重过敏，必须避免含花生食品。', kind: 'persona', importance: 10 },
+    {},
+  )
+  assert.equal(added.action, 'created')
+  const readAccess = () => {
+    const db = new DatabaseSync(dbPath)
+    const row = db.prepare('SELECT access_count, last_access_at FROM memories LIMIT 1').get()
+    db.close()
+    return row
+  }
+  const before = readAccess()
+  const handler = handlers.get('agent/pre-step')
+  const user = {
+    id: 'u-long',
+    role: 'user',
+    source: { kind: 'user' },
+    // 1500 chars: store.search rejects >1000, so auto-recall must trim.
+    content: [{ type: 'text', text: `我对坚果过敏吗？请结合历史说明。${'这是很长的上下文内容。'.repeat(120)}` }],
+  }
+  const decision = await handler({ messages: [user], step: 1 }, async () => ({ kind: 'enter', messages: [user] }))
+  assert.equal(decision.kind, 'enter')
+  assert.equal(decision.messages.length, 2)
+  assert.match(decision.messages[1].content[0].text, /花生/)
+
+  // A background recall is not a user access: no decay refresh.
+  const after = readAccess()
+  assert.equal(after.access_count, 0)
+  assert.equal(after.last_access_at, before.last_access_at)
 })

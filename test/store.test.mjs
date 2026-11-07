@@ -87,6 +87,32 @@ test('expansion: additional detail merges into the existing memory', () => {
   store.close()
 })
 
+test('conflict: a negated allergy fact is pending instead of a second active fact', () => {
+  const { store } = makeStore()
+  const old = store.add({
+    content: '用户对花生过敏，严重时需立即就医。',
+    kind: 'persona',
+    importance: 10,
+  })
+  assert.equal(old.action, 'created')
+  const flipped = store.add({
+    content: '用户对花生不过敏，可以放心吃花生酱。',
+    kind: 'persona',
+    importance: 10,
+  })
+  assert.equal(flipped.action, 'conflict')
+  assert.equal(flipped.memory.status, 'conflict')
+  assert.match(flipped.conflict.reason, /否定/)
+  assert.equal(store.get(old.memory.id).memory.content, '用户对花生过敏，严重时需立即就医。')
+  assert.equal(store.stats().openConflicts, 1)
+  assert.equal(store.search('花生过敏').count, 1, 'only the affirmative fact stays active')
+  // Unrelated negations stay independent facts.
+  assert.equal(store.add({ content: '项目不使用 Redis 缓存。', kind: 'semantic' }).action, 'created')
+  assert.equal(store.add({ content: '服务端口固定为 7337。', kind: 'semantic' }).action, 'created')
+  assert.equal(store.stats().openConflicts, 1)
+  store.close()
+})
+
 test('conflict: contradictory numeric facts are not overwritten', () => {
   const { store } = makeStore()
   const old = store.add({

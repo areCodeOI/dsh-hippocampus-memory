@@ -157,3 +157,23 @@ test('v2 HTTP: bearer token protects management endpoints but not health/assets'
   const metrics = await fetch(`${base}/metrics?token=secret-token`)
   assert.equal(metrics.status, 200)
 })
+
+test('v2 HTTP: metrics declare every exposed metric type', async () => {
+  const { base } = await startServer()
+  await fetch(`${base}/api/memories/search?q=x`)
+  const text = await (await fetch(`${base}/metrics`)).text()
+  for (const metric of ['hippocampus_cache_hits', 'hippocampus_cache_misses', 'hippocampus_memories_total', 'hippocampus_jobs']) {
+    assert.match(text, new RegExp(`# TYPE ${metric} `), `${metric} must declare TYPE`)
+  }
+})
+
+test('v2 HTTP: CORS only reflects loopback origins unless allow-listed', async () => {
+  const { base } = await startServer()
+  const evil = await fetch(`${base}/api/stats`, { headers: { origin: 'https://evil.example' } })
+  assert.equal(evil.headers.get('access-control-allow-origin'), null, 'foreign origin must not be readable')
+  const local = await fetch(`${base}/api/stats`, { headers: { origin: 'http://127.0.0.1:3080' } })
+  assert.equal(local.headers.get('access-control-allow-origin'), 'http://127.0.0.1:3080')
+  assert.equal(local.headers.get('vary'), 'origin')
+  const preflight = await fetch(`${base}/api/stats`, { method: 'OPTIONS', headers: { origin: 'http://127.0.0.1:3080' } })
+  assert.equal(preflight.status, 204)
+})

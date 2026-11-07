@@ -74,7 +74,18 @@ window.__ModuleLoader__.load({
       return `${location.protocol === 'https:' ? 'https' : 'http'}://${host}:7337`
     }
     function savedToken() {
-      return localStorage.getItem('hippocampus.token') || sessionStorage.getItem('hippocampus.token') || ''
+      // docs/UI.md promises sessionStorage for the bearer token; migrate and
+      // clear any legacy localStorage copy so credentials do not persist.
+      const legacy = localStorage.getItem('hippocampus.token')
+      if (legacy) {
+        try {
+          sessionStorage.setItem('hippocampus.token', legacy)
+          localStorage.removeItem('hippocampus.token')
+        } catch {
+          // storage may be unavailable (private mode); ignore
+        }
+      }
+      return sessionStorage.getItem('hippocampus.token') || ''
     }
     function ago(ms) {
       if (!ms) return '—'
@@ -226,7 +237,12 @@ window.__ModuleLoader__.load({
 
       const saveDraftConnection = () => {
         localStorage.setItem('hippocampus.apiBase', baseDraft.replace(/\/+$/, ''))
-        localStorage.setItem('hippocampus.token', tokenDraft)
+        try {
+          sessionStorage.setItem('hippocampus.token', tokenDraft)
+          localStorage.removeItem('hippocampus.token')
+        } catch {
+          // storage may be unavailable (private mode); ignore
+        }
         setBase(baseDraft.replace(/\/+$/, ''))
         setToken(tokenDraft)
         setRefresh((value) => value + 1)
@@ -457,25 +473,27 @@ window.__ModuleLoader__.load({
     const inject = ['slots', 'layout']
 
     function apply(ctx) {
-      ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+      // Wrap each contribution in ctx.effect so DSH removes it on plugin unload
+      // (the official client packages use the same pattern).
+      ctx.effect(() => ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
         name: 'sidebar.panellist',
         id: PANEL_ID,
         order: 5,
         label: () => '记忆',
-      }, MemoryIcon))
+      }, MemoryIcon)), 'hippocampus-memory.sidebar')
 
-      ctx.slots.inject('main', () => ctx.slots.register({
+      ctx.effect(() => ctx.slots.inject('main', () => ctx.slots.register({
         name: 'main',
         key: PANEL_ID,
-      }, MemoryPanel))
+      }, MemoryPanel)), 'hippocampus-memory.main')
 
-      ctx.slots.inject('settings.section', () => ctx.slots.register({
+      ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'hippocampus',
         order: 17,
         label: () => '记忆',
         inject: () => ({ openPanel: () => ctx.layout.selectPanel(PANEL_ID) }),
-      }, MemorySettingsSection))
+      }, MemorySettingsSection)), 'hippocampus-memory.settings')
     }
 
     return { apply, inject }

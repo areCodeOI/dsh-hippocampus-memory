@@ -151,3 +151,32 @@ test('HTTP: invalid requests return structured errors', async () => {
   const noRoute = await fetch(`${base}/nope`)
   assert.equal(noRoute.status, 404)
 })
+
+test('HTTP: read-only endpoints reject non-GET methods with 405', async () => {
+  const { base } = await startServer()
+  for (const [method, path] of [
+    ['PUT', '/api/stats'],
+    ['POST', '/api/export'],
+    ['DELETE', '/api/config'],
+    ['PUT', '/api/memories/search?q=x'],
+  ]) {
+    const response = await fetch(`${base}${path}`, { method })
+    assert.equal(response.status, 405, `${method} ${path}`)
+    assert.match(response.headers.get('allow') ?? '', /GET/)
+  }
+  // The legitimate verb still works.
+  assert.equal((await fetch(`${base}/api/stats`)).status, 200)
+})
+
+test('HTTP: GET /mcp answers 405 and the server keeps serving (no crash)', async () => {
+  const { base } = await startServer()
+  const response = await fetch(`${base}/mcp`)
+  assert.equal(response.status, 405)
+  assert.equal(response.headers.get('allow'), 'POST')
+  assert.match(await response.text(), /JSON-RPC/)
+  // Regression for ERR_HTTP_HEADERS_SENT: the process used to die here.
+  const health = await fetch(`${base}/health`)
+  assert.equal(health.status, 200)
+  const stats = await fetch(`${base}/api/stats`)
+  assert.equal(stats.status, 200)
+})

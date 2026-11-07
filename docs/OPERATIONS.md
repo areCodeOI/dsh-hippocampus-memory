@@ -42,6 +42,8 @@ PostgreSQL：每个 HTTP/DSH 实例都可以启动 worker，`SKIP LOCKED` 保证
 | `HIPPOCAMPUS_AUTH` | `auto` | `auto` / `required` / `open` |
 | `HIPPOCAMPUS_RATE_LIMIT` | `600` | 每窗口请求数 |
 | `HIPPOCAMPUS_RATE_WINDOW_MS` | `60000` | 窗口毫秒 |
+| `HIPPOCAMPUS_CORS_ORIGINS` | 空 | 额外允许的浏览器跨源 Origin（逗号分隔；`*` 放开） |
+| `HIPPOCAMPUS_MAINTENANCE_HOURS` | `24` | 每日 maintenance 间隔（小时；`0` 关闭，随 HTTP 服务 worker 调度） |
 | `HIPPOCAMPUS_JOB_CONCURRENCY` | `1` | worker 并发 |
 | `HIPPOCAMPUS_JOB_INTERVAL_MS` | `1000` | worker 轮询间隔 |
 | `HIPPOCAMPUS_METRICS_PUBLIC` | 空 | `1` 时 `/metrics` 免认证 |
@@ -308,5 +310,6 @@ Schema 迁移是**加法式**的（新表 `IF NOT EXISTS`，`meta.schema_version
 - 记忆待删除：7 天冷静期。
 - 审计：180 天（`maintenance` 清理）。
 - 任务：30 天（`maintenance` 清理）。
+- HTTP 服务默认每 24 小时自动调度一次 `maintenance`（审计/任务裁剪 + 回放）；可用 `HIPPOCAMPUS_MAINTENANCE_HOURS` 调整，`0` 关闭。
 - 事件：365 天（回放清理）。
 - 备份：不自动轮转；用外部 cron/对象存储保留策略。

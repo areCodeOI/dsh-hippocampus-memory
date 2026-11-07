@@ -10,8 +10,9 @@ HIPPOCAMPUS_TOKEN=change-me node bin/hippocampus-http.mjs --host 0.0.0.0 --port 
 
 - 请求/响应均为 `application/json; charset=utf-8`；大于 1KB 的响应在客户端支持时 gzip。
 - 认证：`Authorization: Bearer <token>` 或 `X-Api-Key: <token>`。`HIPPOCAMPUS_TOKEN` 是 bootstrap admin；API key 有 `reader` / `writer` / `admin` 角色与 namespace 白名单。
+- 只读端点只接受 `GET`（如 `/api/stats`、`/api/export`），错误方法返回 `405` 并带 `Allow` 头。
 - 未配置 token 时，**回环请求**自动本地 admin；非回环仍需 key。`HIPPOCAMPUS_AUTH=required` 强制回环也认证。
-- 允许 CORS（`*`）与 `OPTIONS` 预检；如需收紧请改 `lib/http.js` 或反向代理。
+- CORS 只反射回环 Origin（`127.0.0.1` / `localhost` / `::1`）与 `HIPOCAMPUS_CORS_ORIGINS` 允许列表；`OPTIONS` 预检返回 204。
 - 机器可读的 OpenAPI：`GET /openapi.json`。
 - 公共端点：`/health`、`/ready`、`/api/public-config`、静态 UI 资源；其余按角色保护。
 

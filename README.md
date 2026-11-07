@@ -98,7 +98,7 @@ weight = 原始重要性 × e^(−λ_kind × 距上次访问天数)
 ```bash
 cd /path/to/dsh-hippocampus-memory
 node bin/hippocampus.mjs --help
-npm test          # 61 个测试
+npm test          # 69 个测试
 ```
 
 默认数据库路径：`<插件目录>/.data/hippocampus/memory.db`；如果插件目录只读则回退 `$DSH_HOME/hippocampus/memory.db`。旧版 `$DSH_HOME/hippocampus/memory.db` 会自动兼容。
@@ -416,6 +416,8 @@ node bin/hippocampus.mjs import backup.json
 | `HIPPOCAMPUS_AUTH` | `auto`（默认）/ `required`（回环也要认证）/ `open` |
 | `HIPPOCAMPUS_WEB_ROOT` | 自定义 WebUI 静态目录 |
 | `HIPPOCAMPUS_RATE_LIMIT` / `HIPPOCAMPUS_RATE_WINDOW_MS` | 每 key/IP 限流 |
+| `HIPPOCAMPUS_CORS_ORIGINS` | 额外允许的浏览器跨源 Origin（逗号分隔；`*` 放开，慎用） |
+| `HIPPOCAMPUS_MAINTENANCE_HOURS` | 每日 maintenance 调度间隔（小时，默认 24；`0` 关闭） |
 | `HIPPOCAMPUS_METRICS_PUBLIC` | `1` 时 `/metrics` 不需要 token |
 | `HIPPOCAMPUS_EMBEDDING_PROVIDER` | `openai` / `ollama` / `none` |
 | `HIPPOCAMPUS_EMBEDDING_BASE_URL` | OpenAI 兼容端点或 Ollama 地址 |
@@ -646,9 +648,12 @@ WantedBy=multi-user.target
 npm test
 # 等价于：
 node --test --test-isolation=none test/*.test.mjs
+
+# 可选：起真实 HTTP 服务跑多维度运行时冒烟（REST/MCP/鉴权/CORS/性能/崩溃回归）
+node test/smoke-runtime.mjs
 ```
 
-当前 61 个测试覆盖：
+当前 69 个测试覆盖：
 
 - store：写入/召回/中文标点、精确与近似查重、严格补充合并、数值冲突与确认解决、无匹配、衰减归档、待删除 7 天冷静期与永久清理、读取恢复、回放巩固幂等、namespace 隔离、导出导入、人格记忆删除保护、重要性推断、归档/待删除记忆重新写入时恢复、固化记忆被取代需显式确认、冲突事实在重复阈值以下也能被识别
 - MCP：initialize、tools/list、tools/call、resources、prompts、错误码、非法 JSON、重启后持久化
@@ -657,9 +662,10 @@ node --test --test-isolation=none test/*.test.mjs
 - auth：bootstrap、本地回环、key hash、角色、namespace、吊销、required 模式
 - jobs：领取/完成、失败重试、取消、lease 恢复、列表/统计/清理
 - embeddings：FP32/余弦/SimHash、OpenAI+Ollama 多 provider、混合召回、回填、查询缓存、禁用 no-op
-- plugin：8 个工具注册、DSH 会话来源、提示词注入开关、插件卸载时关闭数据库、自动召回 pre-step 注入
+- plugin：8 个工具注册、DSH 会话来源、提示词注入开关、插件卸载时关闭数据库、自动召回 pre-step 注入（长消息截断、不回写访问统计）、promptLanguage auto 语言协商
 - auto-recall：用户消息提取、斜杠命令跳过、上下文截断、来源标记、pre-step 注入
 - storage：SQLite 路径/目录、PostgreSQL 配置脱敏、SQL 占位符与 `INSERT OR IGNORE` 翻译、change_seq 持久化、跨进程租约、图 provider
+- 回归：GET /mcp 不再打死进程、只读端点 405、CORS 仅回环源、Prometheus TYPE 完整、否定事实冲突、任务重试退避、向量权重 `0` 可关闭混合检索
 
 > Android/Termux 上 `node --test` 默认的进程隔离会因为 `process.execPath` 指向 linker 而失败，所以脚本固定使用 `--test-isolation=none`；MCP 测试内部用 `process.argv0` 启动子进程。
 

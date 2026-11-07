@@ -12,6 +12,7 @@ import { resolveStorageConfig, storageLabel } from './lib/paths.js'
 import { createMemoryHttpServer, listen } from './lib/http.js'
 import { EmbeddingService } from './lib/embeddings.js'
 import { appendAutoRecall, extractUserText, shouldAutoRecall } from './lib/auto-recall.js'
+import { vectorWeightFromEnv } from './lib/scoring.js'
 
 export const inject = ['tools']
 
@@ -19,11 +20,14 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value))
 }
 
-function resolveLanguage(config) {
-  const language = config.promptLanguage ?? 'auto'
+export function resolveLanguage(config, env = process.env) {
+  const language = config?.promptLanguage ?? 'auto'
   if (language === 'zh' || language === 'en') return language
-  const env = `${process.env.DSH_LANG ?? ''} ${process.env.LANG ?? ''} ${process.env.LC_ALL ?? ''}`
-  return /zh|cn|hans/i.test(env) ? 'zh' : 'zh'
+  const value = `${env?.DSH_LANG ?? ''} ${env?.LANG ?? ''} ${env?.LC_ALL ?? ''}`
+  if (/zh|cn|hans/i.test(value)) return 'zh'
+  if (/\ben\b|english/i.test(value)) return 'en'
+  // Unknown/empty locale keeps the product default (Simplified Chinese).
+  return 'zh'
 }
 
 /**
@@ -80,7 +84,7 @@ export function apply(ctx, config = {}) {
                 ...args,
                 extraIds: [...vector.scores.keys()],
                 vectorScores: vector.scores,
-                vectorWeight: Number(process.env.HIPPOCAMPUS_VECTOR_WEIGHT) || 0.35,
+                vectorWeight: vectorWeightFromEnv(),
               }
             }
             const result = await callTool(store, def.name, callArgs, {
@@ -106,10 +110,16 @@ export function apply(ctx, config = {}) {
       const text = extractUserText(messages)
       if (!shouldAutoRecall(text)) return decision
       try {
-        const result = store.search(text, {
+        // store.search rejects queries over 1000 chars; long user messages must
+        // still be recallable instead of silently failing the whole step.
+        const query = text.length > 1000 ? text.slice(0, 1000) : text
+        const result = store.search(query, {
           limit: Math.min(8, Math.max(1, Number(config.autoRecallLimit) || 4)),
           namespace: config.autoRecallNamespace || store.namespace,
           mode: 'relevance',
+          // Injecting context is a background read, not a user access: it must
+          // not refresh last_access_at and keep decaying memories alive.
+          updateAccess: false,
         })
         const minScore = Math.max(0, Number(config.autoRecallMinScore) || 0.18)
         const memories = (result.memories ?? []).filter((memory) => (memory.score ?? 0) >= minScore)

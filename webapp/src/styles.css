@@ -297,7 +297,7 @@ html:not(.dark) .hm-stat-card strong { color: #102041; }
 .hm-graph-card .el-skeleton { padding: 24px; }
 .hm-star-wrap { position: absolute; inset: 0; }
 .hm-starmap { position: relative; width: 100%; height: 100%; }
-.hm-starmap canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.hm-starmap canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
 .hm-starmap canvas.dragging { cursor: grabbing; }
 .hm-star-hint { position: absolute; left: 14px; bottom: 12px; font-size: 10px; color: #5f7398; pointer-events: none; }
 .hm-star-tooltip { position: absolute; z-index: 4; pointer-events: none; max-width: 280px; padding: 8px 10px; border: 1px solid #223250; border-radius: 9px; background: #0d1729; box-shadow: 0 16px 40px rgba(0,0,0,.45); font-size: 11px; line-height: 1.45; }

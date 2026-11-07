@@ -48,18 +48,27 @@ test('jobs: enqueue, claim, run and complete', async () => {
 })
 
 test('jobs: failures retry until maxAttempts, then fail', async () => {
-  const { queue, store } = makeQueue()
+  const { queue, store, advance } = makeQueue()
   queue.enqueue('always-fails', {}, { maxAttempts: 2 })
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const result = await queue.runOnce({
-      'always-fails': async () => {
-        throw new Error(`failure ${attempt}`)
-      },
-    })
-    assert.equal(result.status, attempt === 0 ? 'queued' : 'failed')
-    assert.match(result.error, /failure/)
-    assert.equal(result.attempts, attempt + 1)
-  }
+  const first = await queue.runOnce({
+    'always-fails': async () => {
+      throw new Error('failure 0')
+    },
+  })
+  assert.equal(first.status, 'queued')
+  assert.match(first.error, /failure/)
+  assert.equal(first.attempts, 1)
+  // Retries back off instead of hammering the worker on every tick.
+  assert.equal(queue.claim(), undefined, 'a failed job must not be reclaimed immediately')
+  advance(2_000)
+  const second = await queue.runOnce({
+    'always-fails': async () => {
+      throw new Error('failure 1')
+    },
+  })
+  assert.equal(second.status, 'failed')
+  assert.match(second.error, /failure/)
+  assert.equal(second.attempts, 2)
   store.close()
 })
 
