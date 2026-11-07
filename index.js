@@ -130,6 +130,18 @@ export function apply(ctx, config = {}) {
         })
         const minScore = Math.max(0, Number(config.autoRecallMinScore) || 0.18)
         const memories = (result.memories ?? []).filter((memory) => (memory.score ?? 0) >= minScore)
+        if (memories.length > 0) {
+          // Visible usage record for the panel / memory_stats. Only count an
+          // actual injection, so idle turns do not write to the database.
+          try {
+            store.recordAutoRecall({
+              count: memories.length,
+              chars: memories.reduce((total, memory) => total + String(memory.content ?? '').length, 0),
+            })
+          } catch {
+            // usage counters must never break recall
+          }
+        }
         return appendAutoRecall(decision, memories, {
           maxChars: Math.min(4000, Math.max(400, Number(config.autoRecallMaxChars) || 1200)),
         })

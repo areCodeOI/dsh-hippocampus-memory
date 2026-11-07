@@ -95,7 +95,8 @@ test('plugin: registers all memory tools and executes with the DSH session id', 
 
 test('plugin: auto-recall injects relevant memories before the model answers', async () => {
   const { ctx, tools, handlers } = fakeContext()
-  apply(ctx, { dbPath: tempDb(), autoReplay: false, injectPrompt: false, autoRecall: true })
+  const dbPath = tempDb()
+  apply(ctx, { dbPath, autoReplay: false, injectPrompt: false, autoRecall: true })
   const added = await tools.get('memory_add').execute(
     { content: '用户对花生严重过敏，必须避免含花生食品。', kind: 'persona', importance: 10 },
     {},
@@ -117,6 +118,14 @@ test('plugin: auto-recall injects relevant memories before the model answers', a
   assert.equal(decision.messages.length, 2)
   assert.match(decision.messages[1].content[0].text, /花生/)
   assert.equal(decision.messages[1].source.kind, 'hippocampus-auto-recall')
+
+  // The injection is recorded so the panel can show that recall is in use.
+  const db = new DatabaseSync(dbPath)
+  const meta = db.prepare("SELECT value FROM meta WHERE key = 'auto_recall_count'").get()
+  const last = db.prepare("SELECT value FROM meta WHERE key = 'auto_recall_last_count'").get()
+  db.close()
+  assert.ok(Number(meta?.value) >= 1)
+  assert.ok(Number(last?.value) >= 1)
 })
 
 test('plugin: can disable prompt injection while keeping the tools', () => {

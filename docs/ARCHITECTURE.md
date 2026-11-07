@@ -77,9 +77,9 @@ node --test --test-isolation=none test/*.test.mjs
 node test/smoke-runtime.mjs
 ```
 
-当前 71 个测试覆盖：
+当前 72 个测试覆盖：
 
-- store：写入/召回/中文标点、精确与近似查重、严格补充合并、数值冲突与确认解决、无匹配、衰减归档、待删除 7 天冷静期与永久清理、读取恢复、回放巩固幂等、namespace 隔离、导出导入、人格记忆删除保护、重要性推断、归档/待删除记忆重新写入时恢复、固化记忆被取代需显式确认、冲突事实在重复阈值以下也能被识别
+- store：写入/召回/中文标点、精确与近似查重、严格补充合并、数值冲突与确认解决、无匹配、衰减归档、待删除 7 天冷静期与永久清理、读取恢复、回放巩固幂等、namespace 隔离、导出导入、人格记忆删除保护、重要性推断、归档/待删除记忆重新写入时恢复、固化记忆被取代需显式确认、冲突事实在重复阈值以下也能被识别、自动召回使用计数
 - MCP：initialize、tools/list、tools/call、resources、prompts、错误码、非法 JSON、重启后持久化
 - HTTP：health、REST CRUD、搜索、统计、回放、MCP-over-HTTP、Bearer token、错误响应
 - v2 HTTP：WebUI 静态资源、星图/树、monitor/metrics、缓存命中、API key 角色、namespace 限制、审计、任务、导出、token 保护
