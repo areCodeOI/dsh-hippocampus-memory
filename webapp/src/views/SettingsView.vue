@@ -1,0 +1,225 @@
+<template>
+  <div class="hm-page">
+    <el-skeleton v-if="loading" :rows="6" animated />
+    <template v-else>
+      <div class="hm-settings-grid">
+        <section class="hm-card">
+          <div class="hm-card-head"><h2>服务</h2><el-tag size="small" effect="plain">v{{ config.version }}</el-tag></div>
+          <el-descriptions :column="1" border class="hm-descriptions">
+            <el-descriptions-item label="数据库">{{ config.dbPath }}</el-descriptions-item>
+            <el-descriptions-item label="存储">
+              <el-tag size="small" effect="plain" :type="config.storage?.driver === 'postgres' ? 'success' : 'info'">
+                {{ config.storage?.driver === 'postgres' ? `PostgreSQL${config.storage.pgvector ? ' + pgvector' : ''}` : 'SQLite' }}
+              </el-tag>
+              <span v-if="config.storage?.schema" class="hm-mono" style="margin-left: 6px">{{ config.storage.schema }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="图提供方">{{ config.graphProvider ?? 'projection' }}</el-descriptions-item>
+            <el-descriptions-item label="监听">{{ config.host ?? '127.0.0.1' }}:{{ config.port ?? 7337 }}</el-descriptions-item>
+            <el-descriptions-item label="认证">{{ config.authRequired ? '需要 token' : '本机自动管理员' }}</el-descriptions-item>
+            <el-descriptions-item label="任务 worker">{{ config.worker ? '运行中' : '未启动' }}</el-descriptions-item>
+            <el-descriptions-item label="缓存">{{ config.cache?.search?.entries ?? 0 }} 搜索 / {{ config.cache?.graph?.entries ?? 0 }} 图</el-descriptions-item>
+            <el-descriptions-item label="速率限制">{{ config.rateLimiter?.limit ?? '—' }} / {{ Math.round((config.rateLimiter?.windowMs ?? 60000) / 1000) }}s</el-descriptions-item>
+          </el-descriptions>
+        </section>
+
+        <section class="hm-card">
+          <div class="hm-card-head"><h2>嵌入模型</h2><el-tag size="small" :type="config.embeddings?.enabled ? 'success' : 'info'" effect="plain">{{ config.embeddings?.enabled ? 'hybrid' : 'off' }}</el-tag></div>
+          <div v-if="config.embeddings?.enabled" class="hm-provider-list">
+            <div v-for="provider in config.embeddings.providers" :key="provider.id" class="hm-provider">
+              <div><strong>{{ provider.id }}</strong><span>{{ provider.kind }} · {{ provider.model }}</span></div>
+              <span class="hm-mono">{{ provider.dim ?? 'auto' }} dim</span>
+            </div>
+          </div>
+          <el-empty v-else description="未配置 embedding provider，当前完全离线" :image-size="56">
+            <template #description>
+              <p class="hm-muted">设置 <code>HIPPOCAMPUS_EMBEDDING_*</code> 或 <code>HIPPOCAMPUS_EMBEDDINGS</code> 后重启服务。</p>
+            </template>
+          </el-empty>
+          <el-button class="hm-mt" @click="emit('navigate', 'jobs')">去异步任务回填</el-button>
+        </section>
+      </div>
+
+      <section class="hm-card hm-keys-card">
+        <div class="hm-card-head">
+          <h2>API keys</h2>
+          <el-button v-if="isAdmin" type="primary" size="small" @click="openKeyDialog"><el-icon><Plus /></el-icon>新建 key</el-button>
+        </div>
+        <el-alert v-if="!isAdmin" type="info" :closable="false" show-icon title="当前 key 不是 admin" description="使用 HIPPOCAMPUS_TOKEN 登录可创建 reader / writer / admin key。" />
+        <el-table v-else :data="keys" class="hm-table">
+          <el-table-column label="名称 / ID" min-width="200">
+            <template #default="{ row }"><div class="hm-table-main"><strong>{{ row.name }}</strong><span>{{ row.id }}</span></div></template>
+          </el-table-column>
+          <el-table-column prop="role" label="角色" width="100" />
+          <el-table-column label="namespace" width="160"><template #default="{ row }"><span class="hm-mono">{{ row.namespaces.join(', ') }}</span></template></el-table-column>
+          <el-table-column label="最近使用" width="120"><template #default="{ row }"><span class="hm-mono">{{ row.lastUsedAt ? ago(row.lastUsedAt) : 'never' }}</span></template></el-table-column>
+          <el-table-column prop="revoked" label="状态" width="90">
+            <template #default="{ row }"><el-tag :type="row.revoked ? 'info' : 'success'" size="small" effect="plain">{{ row.revoked ? 'revoked' : 'active' }}</el-tag></template>
+          </el-table-column>
+          <el-table-column label="" width="90" align="right">
+            <template #default="{ row }"><el-button v-if="!row.revoked" size="small" type="danger" text @click="revoke(row)">吊销</el-button></template>
+          </el-table-column>
+          <template #empty><div class="hm-empty"><el-icon><Key /></el-icon><p>还没有 API key</p></div></template>
+        </el-table>
+      </section>
+
+      <section class="hm-card hm-danger-zone">
+        <div class="hm-card-head"><h2>数据</h2></div>
+        <div class="hm-inline-actions">
+          <el-button @click="exportSnapshot"><el-icon><Download /></el-icon>导出 JSON</el-button>
+          <el-button v-if="isAdmin" @click="triggerImport"><el-icon><Upload /></el-icon>导入 JSON</el-button>
+          <el-button v-if="isAdmin" @click="backup"><el-icon><FolderOpened /></el-icon>备份数据库</el-button>
+          <input ref="fileInput" type="file" accept="application/json" hidden @change="importSnapshot" />
+        </div>
+        <p class="hm-muted small">导出当前 namespace 的 JSON 快照；导入为 admin，skipExisting 默认开启；SQLite 备份用 <code>VACUUM INTO</code>，PostgreSQL 备份写 JSON 逻辑快照。</p>
+      </section>
+    </template>
+
+    <el-dialog v-model="keyDialog" title="新建 API key" width="min(520px, 92vw)">
+      <el-form label-position="top">
+        <el-form-item label="名称"><el-input v-model="keyForm.name" placeholder="例如 claude-desktop" /></el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="keyForm.role"><el-option v-for="role in ['reader','writer','admin']" :key="role" :label="role" :value="role" /></el-select>
+        </el-form-item>
+        <el-form-item label="namespace（逗号分隔）"><el-input v-model="keyForm.namespaces" placeholder="default, project-a 或 *" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="keyDialog = false">取消</el-button>
+        <el-button type="primary" :loading="keySaving" @click="createKey">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="secretDialog" title="API key 已创建" width="min(560px, 92vw)">
+      <el-alert type="warning" :closable="false" show-icon title="只显示一次，请立即保存" description="服务端只存 SHA-256 hash。" />
+      <div class="hm-secret">{{ secret }}</div>
+      <template #footer><el-button type="primary" @click="secretDialog = false">我已保存</el-button></template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { ago, api } from '../lib'
+
+const props = defineProps({
+  refreshKey: { type: Number, default: 0 },
+  auth: { type: Object, default: null },
+})
+const emit = defineEmits(['navigate'])
+
+const loading = ref(true)
+const config = ref({})
+const keys = ref([])
+const keyDialog = ref(false)
+const secretDialog = ref(false)
+const keySaving = ref(false)
+const secret = ref('')
+const fileInput = ref(null)
+const keyForm = reactive({ name: '', role: 'reader', namespaces: '*' })
+const isAdmin = computed(() => props.auth?.role === 'admin')
+
+async function load() {
+  loading.value = true
+  try {
+    config.value = isAdmin.value ? await api('/api/config') : (await api('/api/public-config'))
+    if (isAdmin.value) {
+      const data = await api('/api/keys')
+      keys.value = data.keys
+    }
+  } catch (error) {
+    ElMessage.error(error.message)
+  } finally {
+    loading.value = false
+  }
+}
+
+function openKeyDialog() {
+  Object.assign(keyForm, { name: '', role: 'reader', namespaces: '*' })
+  keyDialog.value = true
+}
+
+async function createKey() {
+  if (!keyForm.name.trim()) return ElMessage.warning('名称不能为空')
+  keySaving.value = true
+  try {
+    const data = await api('/api/keys', {
+      method: 'POST',
+      body: {
+        name: keyForm.name.trim(),
+        role: keyForm.role,
+        namespaces: keyForm.namespaces.split(',').map((item) => item.trim()).filter(Boolean),
+      },
+    })
+    keyDialog.value = false
+    secret.value = data.key
+    secretDialog.value = true
+    await load()
+  } catch (error) {
+    ElMessage.error(error.message)
+  } finally {
+    keySaving.value = false
+  }
+}
+
+async function revoke(row) {
+  try {
+    await ElMessageBox.confirm(`吊销 key「${row.name}」？`, '吊销 API key', { type: 'warning' })
+    await api(`/api/keys/${row.id}`, { method: 'DELETE' })
+    ElMessage.success('已吊销')
+    await load()
+  } catch (error) {
+    if (error !== 'cancel') ElMessage.error(error.message ?? '操作取消')
+  }
+}
+
+async function exportSnapshot() {
+  try {
+    const headers = sessionStorage.getItem('hippocampus.token') ? { authorization: `Bearer ${sessionStorage.getItem('hippocampus.token')}` } : {}
+    const response = await fetch(`/api/export?namespace=${encodeURIComponent(localStorage.getItem('hippocampus.namespace') || 'default')}`, { headers })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `hippocampus-export-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.append(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出已开始')
+  } catch (error) {
+    ElMessage.error(error.message)
+  }
+}
+
+function triggerImport() {
+  fileInput.value?.click()
+}
+
+async function importSnapshot(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  try {
+    const snapshot = JSON.parse(await file.text())
+    const result = await api('/api/import', { method: 'POST', body: snapshot })
+    ElMessage.success(`导入完成：${result.imported} 条，跳过 ${result.skipped} 条`)
+    await load()
+  } catch (error) {
+    ElMessage.error(error.message)
+  } finally {
+    event.target.value = ''
+  }
+}
+
+async function backup() {
+  try {
+    await api('/api/jobs', { method: 'POST', body: { type: 'backup', payload: {} } })
+    ElMessage.success('备份任务已入队')
+  } catch (error) {
+    ElMessage.error(error.message)
+  }
+}
+
+onMounted(load)
+watch(() => [props.refreshKey, props.auth?.role], load)
+</script>

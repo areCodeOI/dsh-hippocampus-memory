@@ -1,0 +1,76 @@
+{
+  "name": "dsh-hippocampus-memory",
+  "version": "0.2.0",
+  "description": "海马体长期记忆：四层 CLS 记忆 + SQLite/PostgreSQL(pgvector) 存储 + REST/MCP + Vue3 WebUI 星图/树 + DSH 侧边栏管理面板 + 权限/审计/嵌入/任务/监控",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./lib/*": "./lib/*",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json",
+    "./client": "./client.js"
+  },
+  "bin": {
+    "hippocampus": "./bin/hippocampus.mjs",
+    "hippocampus-mcp": "./bin/hippocampus-mcp.mjs",
+    "hippocampus-http": "./bin/hippocampus-http.mjs"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "lib/",
+    "bin/",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "docs/",
+    "LICENSE",
+    "web/",
+    "webapp/src",
+    "webapp/package.json",
+    "webapp/vite.config.js",
+    "webapp/index.html",
+    "webapp/public"
+  ],
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs",
+    "start:mcp": "node bin/hippocampus-mcp.mjs",
+    "start:http": "node bin/hippocampus-http.mjs"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "memory",
+    "long-term-memory",
+    "hippocampus",
+    "mcp",
+    "sqlite",
+    "agent"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-settings-general"
+      ],
+      "platform": "web"
+    }
+  },
+  "icon": "icon.svg",
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

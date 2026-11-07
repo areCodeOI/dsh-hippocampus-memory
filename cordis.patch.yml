@@ -1,0 +1,52 @@
+# dsh-hippocampus-memory — 海马体长期记忆
+#
+# 该 bundle 只插入一行 Host 插件。插件在 Host 进程内打开 SQLite 记忆库，
+# 注册 memory_add / memory_search / memory_get / memory_update /
+# memory_archive / memory_delete / memory_replay / memory_stats 八个工具，
+# 并（可选）向系统提示词注入一段简短的记忆使用规范。
+#
+# 默认 SQLite 位于 <插件目录>/.data/hippocampus/memory.db（可在配置/环境变量中改）；
+# 旧版 $DSH_HOME/hippocampus/memory.db 会自动兼容。也可切换 PostgreSQL +
+# pgvector 让多个 API/DSH 实例共享同一份记忆，实现水平扩容。
+#
+# 配置项（全部可省略）：
+#   storage:              sqlite | postgres（空 = 有 pgUrl 时 postgres，否则 sqlite）
+#   dbPath:               SQLite 文件路径；空 = <plugin>/.data/hippocampus/memory.db
+#   dataDir:              SQLite 数据目录；相对路径按插件根解析
+#   dataLocation:         plugin | dsh（默认 plugin；dsh = $DSH_HOME/hippocampus）
+#   pgUrl:                PostgreSQL 连接串，如 postgres://user:pass@host:5432/hippocampus
+#   pgSchema:             PostgreSQL schema，默认 public
+#   pgvector:             是否尝试 pgvector 精确向量检索，默认 true（扩展不可用时自动回退）
+#   pgPoolMax:            worker 连接池上限，默认 4
+#   graphProvider:        projection（默认；从当前存储投影）| postgres（PostgreSQL 图投影）
+#   namespace:            默认命名空间（多 agent 隔离用），默认 default
+#   injectPrompt:         是否向系统提示词注入记忆规范，默认 true
+#   autoReplay:           是否在后台自动执行回放/衰减/巩固，默认 true
+#   replayIntervalHours:  自动回放间隔（小时），默认 24
+#   retrievalLimit:       memory_search 默认返回条数，默认 5
+#   promptLanguage:       auto | zh | en，默认 auto
+- insert:
+    - id: hippocampus-memory
+      name: dsh-hippocampus-memory
+      config:
+        namespace: default
+        injectPrompt: true
+        autoReplay: true
+        replayIntervalHours: 24
+        retrievalLimit: 5
+        promptLanguage: auto
+        storage: ''
+        dbPath: ''
+        dataDir: ''
+        dataLocation: plugin
+        pgUrl: ''
+        pgSchema: public
+        pgvector: true
+        pgPoolMax: 4
+        graphProvider: projection
+        # 随 DSH 进程一起启动 WebUI / REST / MCP-over-HTTP 服务。
+        # 若 7337 已被独立服务占用，插件会记录警告并继续使用已有服务。
+        httpEnabled: true
+        httpHost: 127.0.0.1
+        httpPort: 7337
+        httpToken: ''

@@ -1,0 +1,13 @@
+node_modules/
+webapp/node_modules/
+.data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.log
+*.tgz
+.env
+.env.*
+.DS_Store

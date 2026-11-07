@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Hippocampus Memory",
+    "description": "Long-term agent memory modelled on the hippocampal-neocortical system: four layers, SQLite persistence, decay/replay and conflict handling, plus a WebUI star map/tree, REST/MCP, RBAC/audit, multi-provider embeddings, cache, async jobs and monitoring."
+  }
+}
