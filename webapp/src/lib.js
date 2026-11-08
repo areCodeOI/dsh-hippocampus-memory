@@ -10,6 +10,16 @@ export const STATUS_LABEL = {
   superseded: '已取代',
 }
 
+// A panel-launched link carries the token in the fragment. Fragments are not
+// sent to the server or included in the Referer; store it for this tab and
+// clear it from the address bar immediately.
+const hashParams = new URLSearchParams(String(location.hash || '').replace(/^#/, ''))
+const hashToken = hashParams.get('token')
+if (hashToken) {
+  sessionStorage.setItem('hippocampus.token', hashToken)
+  history.replaceState(null, '', `${location.pathname}${location.search}`)
+}
+
 export const session = reactive({
   token: sessionStorage.getItem('hippocampus.token') ?? '',
   auth: null,

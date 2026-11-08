@@ -7,17 +7,37 @@
 > 已装好插件后，在浏览器里管理记忆。手机/电脑都可以，不需要懂前端。
 > 只想知道手机 App 怎么用，看 [USE-DSH-GO.md](USE-DSH-GO.md)。
 
-## 0. 先启用（默认关闭）
+## 0. 先打开（默认关闭）
 
 为了减少攻击面，插件**默认不启动 HTTP/WebUI**（`httpEnabled: false`）。
-dsh-go 手机原生面板不需要它；只有想用浏览器管理台时才开启：
+dsh-go 原生面板不需要它，只有用浏览器管理台时才启动。
 
-1. 编辑本目录的 `cordis.patch.yml`，把 `httpEnabled` 改成 `true`，
-   `httpToken` 填一串随机长口令（强烈建议，不要留空）。
-2. 重启一次引擎。
-3. 若用环境变量启动，也可设 `HIPOCAMPUS_HTTP_ENABLED=1` 和 `HIPOCAMPUS_TOKEN`。
+### 方式 A：手机面板一键打开（推荐）
 
-> 留空 token 时只允许本机回环访问；同机其他 App 仍可能读写，共享设备务必设 token。
+1. 打开「海马体记忆」面板。
+2. 点底部 **WebUI**。
+3. 插件会：
+   - 首次自动生成一个随机 token，保存到 `$DSH_HOME/hippocampus/webui-token`（权限 600，不进 git）；
+   - 启动 `127.0.0.1:7337`；
+   - 把带 `#token=...` 的链接复制到剪贴板。
+4. 粘贴到浏览器打开。WebUI 会读取 URL 片段里的 token，存进当前标签页的
+   `sessionStorage`，并立刻从地址栏清掉 token。
+
+> 这个链接里的 token 等同于密码，不要转发/截图；需要换 token 时删除
+> `$DSH_HOME/hippocampus/webui-token` 后重启引擎。
+
+### 方式 B：直接打开 7337
+
+需要先启用服务：
+
+1. 编辑本目录的 `cordis.patch.yml`，把 `httpEnabled` 改成 `true`。
+2. `httpToken` 可留空（会自动生成并写入上面的 token 文件），也可显式填一串长口令。
+3. 重启一次引擎。
+4. 打开 `http://127.0.0.1:7337/`，输入 token（见 token 文件）登录。
+
+也可以用环境变量：`HIPOCAMPUS_HTTP_ENABLED=1`，`HIPOCAMPUS_TOKEN` 可选。
+
+> token 为空时只允许本机回环访问；同机其他 App 仍可能读写，共享设备务必设 token。
 
 ## 1. 打开管理台
 
@@ -27,10 +47,8 @@ dsh-go 手机原生面板不需要它；只有想用浏览器管理台时才开�
 http://127.0.0.1:7337/
 ```
 
-- 如果浏览器和 DSH 在同一台设备上，通常直接就能打开（前提是已按第 0 节启用）。
-- 如果提示要 token：说明设置了 `HIPOCAMPUS_TOKEN` 或 `HIPOCAMPUS_AUTH=required`，
-  把 token 填进去即可（找部署的人要，不要发到群里）。
-- 打不开：先在 App「引擎」页重启引擎；或确认 7337 没被别的程序占用。
+- 方式 A 会用带 token 的链接自动登录；直接打开则需要手动输入 token。
+- 打不开：先确认已用面板/配置启动；再检查 7337 是否被别的程序占用。
 
 左侧是 7 个页面：**总览、记忆库、记忆星图、记忆树、异步任务、审计日志、设置与权限**。
 

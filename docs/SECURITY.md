@@ -12,6 +12,10 @@
 
 - SQLite 文件在应用私有目录（默认 `<插件>/.data/hippocampus/memory.db`；旧版 `$DSH_HOME/hippocampus/memory.db` 会自动沿用；权限 600）。
 - **HTTP 默认关闭**（`httpEnabled: false`）；显式开启后只监听 `127.0.0.1`，dsh-go 原生界面不依赖它。
+- **WebUI token**：首次启动自动生成 32 字节随机 token，保存在
+  `$DSH_HOME/hippocampus/webui-token`（0600，目录 0700）；`httpToken` 可覆盖。
+  面板复制的链接把 token 放在 URL **fragment**（不发给服务器/Referer），
+  WebUI 读取后立即清除地址栏。链接等同于密码，不要转发/截图；轮换时删除 token 文件并重启。
 - 没有云服务、没有外联；只有显式配置嵌入 provider 后才会向该 provider 发请求。
 - 本机回环等于操作者机器；能读数据库文件的本地进程基本可以绕过 API 直接读数据。
 

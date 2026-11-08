@@ -62,3 +62,16 @@ test('dsh-go: save-memory, recall and panel use the shared store', async () => {
   store.close()
   fs.rmSync(dir, { recursive: true, force: true })
 })
+
+test('dsh-go: the WebUI panel action copies a fragment token link', async () => {
+  const { store, dir } = makeStore()
+  const dshGo = fakeDshGo()
+  const webUi = { start: async () => ({ link: 'http://127.0.0.1:7337/#token=secret' }) }
+  registerDshGoUi({ dshGo }, store, webUi)
+  const panel = dshGo.regs.panels.get('memory')
+  const result = await panel.actions.webui({}, { locale: 'zh-CN' })
+  assert.equal(result[1].copy, 'http://127.0.0.1:7337/#token=secret')
+  assert.match(result[0].toast, /WebUI/)
+  store.close()
+  fs.rmSync(dir, { recursive: true, force: true })
+})

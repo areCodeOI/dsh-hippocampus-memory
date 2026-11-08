@@ -13,6 +13,7 @@ import { createMemoryHttpServer, listen } from './lib/http.js'
 import { EmbeddingService } from './lib/embeddings.js'
 import { appendAutoRecall, extractUserText, shouldAutoRecall } from './lib/auto-recall.js'
 import { registerDshGoUi } from './lib/dsh-go-ui.js'
+import { createWebUiService } from './lib/webui.js'
 import { vectorWeightFromEnv } from './lib/scoring.js'
 
 export const inject = ['tools']
@@ -55,10 +56,24 @@ export function apply(ctx, config = {}) {
 
   ctx.effect(() => () => store.close(), 'hippocampus: close database')
 
+  const httpHost = String(config.httpHost ?? '127.0.0.1')
+  const configuredPort = Number(config.httpPort ?? 7337)
+  const httpPort = Number.isFinite(configuredPort) ? configuredPort : 7337
+  const webUi = createWebUiService({
+    store,
+    host: httpHost,
+    port: httpPort,
+    token: config.httpToken || process.env.HIPPOCAMPUS_TOKEN || undefined,
+    dshHome: process.env.DSH_HOME,
+    storage,
+    graphProvider: config.graphProvider,
+  })
+  ctx.effect(() => () => webUi.stop(), 'hippocampus: WebUI server')
+
   // dsh-go 手机 App 的原生界面（与 Host 工具共用同一个 store）。没有 dsh-go
   // 桥接时这里保持 pending，不影响 Web/桌面端。
   ctx.inject(['dshGo'], (dctx) => {
-    if (dctx?.dshGo) registerDshGoUi(dctx, store)
+    if (dctx?.dshGo) registerDshGoUi(dctx, store, webUi)
   })
 
   let embeddings = null
@@ -168,59 +183,10 @@ export function apply(ctx, config = {}) {
 
   const httpEnabled = config.httpEnabled === true || process.env.HIPPOCAMPUS_HTTP_ENABLED === '1'
   if (httpEnabled) {
-    const httpHost = String(config.httpHost ?? '127.0.0.1')
-    const configuredPort = Number(config.httpPort ?? 7337)
-    const httpPort = Number.isFinite(configuredPort) ? configuredPort : 7337
-    const httpToken = config.httpToken || process.env.HIPPOCAMPUS_TOKEN || undefined
-    if (!httpToken) {
-      console.warn(
-        '[hippocampus] HTTP enabled without a token: loopback admin is available to any local process. ' +
-          'Browser cross-site writes and DNS rebinding are blocked, but set httpToken/HIPPOCAMPUS_TOKEN on shared devices.',
-      )
-    }
-    let httpServer = null
-    let httpClosed = false
-    void (async () => {
-      try {
-        httpServer = createMemoryHttpServer({
-          store,
-          token: httpToken,
-          host: httpHost,
-          port: httpPort,
-          storage,
-          graphProvider: config.graphProvider,
-        })
-        const address = await listen(httpServer, { port: httpPort, host: httpHost })
-        if (httpClosed) {
-          httpServer.close()
-          return
-        }
-        if (!httpToken && httpHost !== '127.0.0.1' && httpHost !== 'localhost') {
-          console.warn('[hippocampus] HTTP UI is exposed without a token; set httpToken or HIPPOCAMPUS_TOKEN')
-        }
-        console.warn(`[hippocampus] Web UI + REST listening on http://${address.address}:${address.port} (${storageLabel(storage)})`)
-      } catch (error) {
-        try {
-          httpServer?.close()
-        } catch {
-          // ignore
-        }
-        console.warn('[hippocampus] HTTP server failed:', error instanceof Error ? error.message : String(error))
-      }
-    })()
-    ctx.effect(
-      () => () => {
-        httpClosed = true
-        try {
-          httpServer?.close()
-        } catch {
-          // ignore
-        }
-      },
-      'hippocampus: HTTP server',
-    )
+    void webUi.start().catch((error) => {
+      console.warn('[hippocampus] HTTP server failed:', error instanceof Error ? error.message : String(error))
+    })
   }
-
   if (config.autoReplay !== false) {
     const hours = clamp(Number(config.replayIntervalHours) || 24, 1, 24 * 30)
     // setTimeout/setInterval overflow above 2^31-1 ms and fire immediately.
