@@ -306,6 +306,9 @@ window.__ModuleLoader__.load({
 
       const latestMemory = selectedDetail?.memory ?? null
       const maxKind = Math.max(1, ...KIND_ORDER.map((kind) => stats.byKind?.[kind] ?? 0))
+      // The full WebUI accepts a fragment token; keep it out of the query and
+      // let the page store it in sessionStorage and clear the address bar.
+      const fullUrl = token ? `${base}/#token=${encodeURIComponent(token)}` : `${base}/`
 
       return h('div', { className: 'hmr-root' }, [
         h('style', { key: 'style' }, CSS),
@@ -320,7 +323,7 @@ window.__ModuleLoader__.load({
             h('button', { key: 'refresh', className: 'hmr-btn', onClick: () => setRefresh((value) => value + 1) }, '刷新'),
             h('button', { key: 'star', className: 'hmr-btn', onClick: () => window.open(`${base}/#/star`, '_blank', 'noopener') }, '星图'),
             h('button', { key: 'tree', className: 'hmr-btn', onClick: () => window.open(`${base}/#/tree`, '_blank', 'noopener') }, '树'),
-            h('button', { key: 'full', className: 'hmr-btn primary', onClick: () => window.open(`${base}/`, '_blank', 'noopener') }, '打开完整管理台'),
+            h('button', { key: 'full', className: 'hmr-btn primary', onClick: () => window.open(fullUrl, '_blank', 'noopener') }, '打开完整管理台'),
           ]),
         ]),
         h('div', { className: 'hmr-tabs', key: 'tabs' }, tabs.map(([id, label]) => h('button', {
@@ -440,7 +443,7 @@ window.__ModuleLoader__.load({
               ]),
               h('div', { className: 'hmr-actions' }, [
                 h('button', { key: 'save', className: 'hmr-btn primary', onClick: saveDraftConnection }, '保存并重连'),
-                h('button', { key: 'full', className: 'hmr-btn', onClick: () => window.open(`${base}/`, '_blank', 'noopener') }, '打开完整管理台'),
+                h('button', { key: 'full', className: 'hmr-btn', onClick: () => window.open(fullUrl, '_blank', 'noopener') }, '打开完整管理台'),
               ]),
               h('p', { className: 'hmr-code', style: { marginTop: 10 } }, '独立 HTTP 服务默认监听 127.0.0.1:7337；可在设置或启动参数中改端口/监听地址。'),
             ]),

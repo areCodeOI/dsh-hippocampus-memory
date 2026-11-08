@@ -117,7 +117,8 @@ AI 会自己决定是否调用记忆工具；你也可以在插件面板里看�
 
 2. 按 AI 的提示重启/刷新 DSH。
 3. 侧边栏「插件」旁会出现「记忆」入口；设置页会多一个「记忆」分区。
-4. 同样用 `memory_stats` 检查；WebUI 默认关闭，需要时按 [USE-WEB.md](USE-WEB.md) 开启。
+4. 同样用 `memory_stats` 检查；WebUI 默认关闭，需要时按 [USE-WEB.md](USE-WEB.md) 开启
+   （DSH 原版没有手机面板的 WebUI 按钮，要改 `httpEnabled` 或用独立服务）。
 
 注意：本地目录安装是链接，项目文件夹不要删/移。
 

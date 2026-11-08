@@ -39,6 +39,16 @@ dsh-go 原生面板不需要它，只有用浏览器管理台时才启动。
 
 > token 为空时只允许本机回环访问；同机其他 App 仍可能读写，共享设备务必设 token。
 
+### DSH 原版（Web / 桌面）怎么开
+
+DSH 原版没有 dsh-go 的「WebUI」按钮，但 Host 插件、自动召回和 WebUI 服务都支持：
+
+1. 把本目录 `cordis.patch.yml` 的 `httpEnabled` 改成 `true`，重启 DSH。
+2. token 见 `$DSH_HOME/hippocampus/webui-token`；打开 7337 输入即可。
+3. DSH 侧边栏「记忆」面板的「打开完整管理台」会在你已填 token 时
+   自动带上 `#token=`，不用再输。
+4. 不想改配置：运行 `node bin/hippocampus-http.mjs --port 7337`（手动服务）。
+
 ## 1. 打开管理台
 
 在浏览器地址栏输入：

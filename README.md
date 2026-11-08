@@ -33,6 +33,19 @@
 
 看不到就先去 App「引擎」页重启一次引擎。
 
+## 平台支持
+
+| 能力 | dsh-go 手机 App | DSH 原版（Web / 桌面） |
+| --- | --- | --- |
+| `memory_*` 工具、自动召回 | 支持 | 支持 |
+| 原生状态条 / 面板 / 存进记忆 / 回忆 | 支持 | 无（用侧边栏「记忆」面板） |
+| 记忆面板 **WebUI** 一键启动 | 支持 | 无此按钮；需启用 `httpEnabled` 或运行独立服务 |
+| WebUI + token fragment 登录 | 支持 | 支持（侧边栏「打开完整管理台」会带上已填 token） |
+
+> DSH 原版默认也不启动 7337。要用 WebUI：把 `cordis.patch.yml` 的
+> `httpEnabled` 改为 true 后重启，token 见 `$DSH_HOME/hippocampus/webui-token`；
+> 或运行 `node bin/hippocampus-http.mjs --port 7337`。
+
 ## 第一次用：说人话就行
 
 ```text

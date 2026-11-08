@@ -24,7 +24,7 @@
 ## 1.1 浏览器威胁模型（CSRF / DNS rebinding）
 
 默认 HTTP 服务只监听回环，但浏览器页面仍然能访问 `127.0.0.1:7337`。以下防护在
-2026-08 的安全复查后生效：
+2026-11-08 的安全复查后生效：
 
 - **跨站写请求**：`POST/PUT/PATCH/DELETE` 如果带非允许 `Origin`，或
   `Sec-Fetch-Site: cross-site` 且没有合法 Origin，直接返回 403。CORS 只能阻止

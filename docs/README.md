@@ -68,6 +68,12 @@
 - [SECURITY.md](SECURITY.md) — 信任边界、角色、API key、审计、加固清单
 - [CONFIG.md](CONFIG.md) — 环境变量与数据位置
 
+## 平台差异
+
+- **dsh-go 手机 App**：有原生状态条/面板、长按存记忆、回忆胶囊，以及面板里的 **WebUI** 一键启动。
+- **DSH 原版（Web / 桌面）**：Host 工具、自动召回、WebUI 服务都支持；没有手机原生面板，
+  侧边栏「记忆」面板需要先启用 `httpEnabled`，或运行独立 HTTP 服务。详见 [USE-WEB.md](USE-WEB.md)。
+
 ## 术语速查
 
 - **Host 插件 / 主插件**：跑在引擎里，给 AI 提供 `memory_*` 工具、自动召回、HTTP/WebUI。

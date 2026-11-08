@@ -137,7 +137,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 curl -s -X POST http://127.0.0.1:7337/api/import \
   -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' \
-  --data-binary @backup-2026-11-07.json
+  --data-binary @backup.json
 ```
 
 ### 物理备份
