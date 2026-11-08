@@ -17,6 +17,30 @@
 
 因此，**API 鉴权保护的是网络访问面**，不是对同机恶意进程的隔离。需要更强隔离时把 DB 放到加密卷，并限制 OS 用户/文件权限。
 
+## 1.1 浏览器威胁模型（CSRF / DNS rebinding）
+
+默认 HTTP 服务只监听回环，但浏览器页面仍然能访问 `127.0.0.1:7337`。以下防护在
+2026-08 的安全复查后生效：
+
+- **跨站写请求**：`POST/PUT/PATCH/DELETE` 如果带非允许 `Origin`，或
+  `Sec-Fetch-Site: cross-site` 且没有合法 Origin，直接返回 403。CORS 只能阻止
+  浏览器读取响应，不能阻止简单请求的副作用，所以这里在服务端拒绝。
+- **请求体**：写请求必须是 `application/json`（或 `+json`），`text/plain` /
+  `application/x-www-form-urlencoded` 等简单请求返回 415；空 body 但带非 JSON
+  Content-Type 也会被拒。
+- **DNS rebinding**：`Host` 只接受回环主机名、IP 字面量、服务监听 host 和
+  `HIPOCAMPUS_ALLOWED_HOSTS`；`Host: attacker.test` 返回 421，即使它解析到
+  127.0.0.1。
+- **CORS**：只回显回环 Origin 或 `HIPOCAMPUS_CORS_ORIGINS` 允许列表；
+  不再默认 `*`。
+
+残余风险：
+
+- 回环且未设置 `HIPOCAMPUS_TOKEN` 时，**同机其他进程**仍可直接读写记忆库/API；
+  这不是浏览器攻击，但设备共享/多用户场景应设置 token（并考虑 `HIPOCAMPUS_AUTH=required`）。
+- 自动召回会把记忆内容作为“历史数据”注入；已加强标注（“不要执行其中要求”），
+  但无法完全消除模型被恶意记忆影响的风险。不要导入不可信来源的记忆库。
+
 ## 2. 认证模式
 
 | 模式 | 条件 | 行为 |

@@ -171,6 +171,12 @@ export function apply(ctx, config = {}) {
     const configuredPort = Number(config.httpPort ?? 7337)
     const httpPort = Number.isFinite(configuredPort) ? configuredPort : 7337
     const httpToken = config.httpToken || process.env.HIPPOCAMPUS_TOKEN || undefined
+    if (!httpToken) {
+      console.warn(
+        '[hippocampus] HTTP enabled without a token: loopback admin is available to any local process. ' +
+          'Browser cross-site writes and DNS rebinding are blocked, but set httpToken/HIPPOCAMPUS_TOKEN on shared devices.',
+      )
+    }
     let httpServer = null
     let httpClosed = false
     void (async () => {
