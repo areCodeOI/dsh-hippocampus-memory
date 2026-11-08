@@ -88,7 +88,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 - 默认只监听 `127.0.0.1`，不上传；但数据库**未加密**，依赖设备锁屏/文件权限。
 - 备份：WebUI「设置 → 导出」下载 JSON，或复制 `memory.db`（先停服务）。
 - 跨机访问务必设置 `HIPOCAMPUS_TOKEN`；CORS 只允许回环来源，跨站写请求会被 403，DNS rebinding Host 会被 421。
-- 默认没有 token：同机其他进程仍可读写；共享设备/多用户请设置 `HIPOCAMPUS_TOKEN`。
+- 首次打开 WebUI 创建管理员后，回环也要求登录会话/API key；共享设备请退出登录并锁屏。
 - 详见 [SECURITY.md](docs/SECURITY.md) 与 [CONFIG.md](docs/CONFIG.md)。
 
 ## 开发与测试

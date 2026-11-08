@@ -5,7 +5,7 @@
 > **前置**：会 HTTP/JSON；最好读过 TOOLS
 
 由 `bin/hippocampus-http.mjs` 提供，默认 `http://127.0.0.1:7337`。
-DSH 插件默认随引擎启动该服务（`httpEnabled: true`，自动 token）；也可单独运行本文件。
+DSH 插件默认随引擎启动该服务（`httpEnabled: true`）；首次打开 WebUI 创建管理员。也可单独运行本文件。
 
 ```bash
 node bin/hippocampus-http.mjs --port 7337
@@ -32,7 +32,11 @@ HIPPOCAMPUS_TOKEN=change-me node bin/hippocampus-http.mjs --host 0.0.0.0 --port 
 | `GET` | `/ready` | 就绪检查（DB 可查询） |
 | `GET` | `/` | WebUI（`index.html`） |
 | `GET` | `/api/public-config` | 公开配置：版本、认证、嵌入、存储驱动、图 provider |
-| `GET` | `/api/auth/check` | 校验当前 token，返回角色/namespace/服务配置 |
+| `GET` | `/api/auth/setup-status` | 是否需要首次创建管理员 |
+| `POST` | `/api/auth/register` | 首次创建管理员（仅回环） |
+| `POST` | `/api/auth/login` | 邮箱/密码登录，返回 30 天会话 token |
+| `POST` | `/api/auth/logout` | 注销会话 |
+| `GET` | `/api/auth/check` | 校验会话/API key，返回角色/namespace/服务配置 |
 | `POST` | `/mcp` | MCP JSON-RPC（见 [MCP.md](MCP.md)） |
 | `GET` | `/metrics` | Prometheus 指标（默认 admin；`?token=` 也可） |
 | `GET` | `/api/tools` | 工具定义列表 |
@@ -324,7 +328,7 @@ curl -s http://127.0.0.1:7337/api/tools/memory_search \
 | HTTP 状态 | 场景 |
 | --- | --- |
 | 400 | 参数错误、非法 JSON、非法状态迁移 |
-| 401 | 缺少/错误 token |
+| 401 | 缺少/错误会话或 API key |
 | 404 | 记忆或路由不存在 |
 | 405 | 方法不允许（如 GET /mcp） |
 | 500 | 内部错误 |

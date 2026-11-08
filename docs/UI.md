@@ -20,11 +20,10 @@ node bin/hippocampus-http.mjs --host 127.0.0.1 --port 7337
 
 - 点击打开 DSH 风格的主面板：总览、记忆库（搜索/详情/编辑/删除）、任务、设置。
 - DSH「设置」页新增「记忆」分区，可直接跳到管理面板。
-- 面板通过独立 HTTP 服务（默认 `http://<当前 host>:7337`）读写同一个记忆库；在面板「设置」里可以改 API 地址和 token。
-- HTTP 默认启动（自动 token）；dsh-go 记忆面板的 **WebUI** 按钮会复制带 token 的链接
-  （见 [USE-WEB.md](USE-WEB.md) 第 0 节）。也可以运行
+- 面板通过独立 HTTP 服务（默认 `http://<当前 host>:7337`）读写同一个记忆库；在面板「设置」里可以改 API 地址和 API key。
+- HTTP 默认启动；首次打开 WebUI 创建管理员（邮箱+密码），之后登录。也可以运行
   `node bin/hippocampus-http.mjs --port 7337`，或在插件配置里设 `httpEnabled: true` 后重启。
-- 面板右上角「打开完整管理台」会在新标签打开本 Vue WebUI，星图/树、审计、API key、导入导出都在那里。
+- 面板右上角「打开完整管理台」会在新标签打开本 Vue WebUI，星图/树、审计、API key、导入导出都在那里；面板本身用 API key 连接。
 - DSH 客户端插件源码是包根的 `client.js`；它使用 DSH 的 theme token，不引入第二套全局样式。
 
 ## 页面

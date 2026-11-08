@@ -186,7 +186,7 @@ curl -X POST http://127.0.0.1:7337/api/memories \
 | --- | --- |
 | 没有状态条 / 没有「存进记忆」 | App「引擎」页重启引擎；再看「插件」页是否只有一个海马体条目 |
 | `memory_*` 工具不存在 | 重新执行安装命令；确认 `dsh plugin --profile web list` 有 `dsh-hippocampus-memory` |
-| 7337 打不开 | HTTP 默认开启；检查端口占用/引擎，或按 [USE-WEB.md](USE-WEB.md) 的 token 说明 |
+| 7337 打不开 | HTTP 默认开启；检查端口占用/引擎；首次打开要创建管理员 |
 | 记忆条数是 0 | 还没写入过；说一句「记住……」或用长按「存进记忆」 |
 | 旧记忆不见了 | 检查是不是换了 App 包/设备；旧库位置见 [CONFIG.md](CONFIG.md) |
 
@@ -209,7 +209,9 @@ dsh plugin --profile web remove dsh-hippocampus-memory
 | dsh-go | DSH 的 Android 手机 App |
 | 插件 / Host 插件 | 给 AI 增加能力的小程序；本项目的插件给 AI 加“长期记忆” |
 | dsh-go 原生界面 | 手机 App 里的状态条、面板、长按菜单（和主插件同一个包） |
-| token | 一串访问口令；设了以后打开管理台/API 要填 |
+| 管理员账号 | WebUI 首次打开时用邮箱+密码创建，之后登录 |
+| API key | 给 DSH 面板/外部程序用的访问密钥，WebUI 设置里创建 |
+| token | bootstrap 访问口令；脚本可用 `HIPOCAMPUS_TOKEN` |
 | MCP | 让 Claude/Cursor 等外部客户端也能用记忆工具的协议 |
 | namespace | 记忆空间，用来隔离不同项目/agent |
 | SQLite | 本机的小型数据库文件；记忆就存在里面 |
