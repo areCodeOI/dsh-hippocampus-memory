@@ -8,12 +8,14 @@
 
 import fs from 'node:fs'
 import { spawn } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { MemoryStore } from '../lib/store.js'
 import { TOOL_DEFS, callTool } from '../lib/tools.js'
 import { resolveStorageConfig, storageLabel } from '../lib/paths.js'
 import { createMemoryHttpServer, listen } from '../lib/http.js'
+import { AuthService } from '../lib/auth.js'
 import { nodeExecutable } from '../lib/exec.js'
 
 const { values, positionals } = parseArgs({
@@ -62,6 +64,8 @@ const { values, positionals } = parseArgs({
     port: { type: 'string', short: 'p' },
     host: { type: 'string' },
     token: { type: 'string' },
+    email: { type: 'string' },
+    password: { type: 'string' },
     help: { type: 'boolean', short: 'h' },
   },
   allowPositionals: true,
@@ -88,6 +92,10 @@ commands:
   export [file]                导出 JSON（默认 stdout）
   import <file>                导入 JSON
   tool <name> [json]           调用任意 memory_* 工具
+  user list                    列出管理员账号（不显示密码哈希）
+  user reset-password          重置密码并吊销该用户全部会话：
+                               --email x@y.com [--password 新密码]
+                               省略 --password 时会生成一次性强密码（只显示一次）
   migrate                      复制到一个新存储（--from-db/--from-pg-url → --to-pg-url/--to-db）
   serve-http                   启动 HTTP/MCP 服务（--port 7337）
   serve-mcp                    启动 stdio MCP 服务
@@ -325,6 +333,41 @@ async function main() {
         print(store.importAll(snapshot))
         break
       }
+      case 'user': {
+        const sub = rest[0] ?? 'list'
+        const auth = new AuthService({ db: store.db })
+        if (sub === 'list') {
+          print({ users: auth.listUsers() })
+          break
+        }
+        if (sub !== 'reset-password') fail('user <list|reset-password> --email <email> [--password <new>]')
+        const email = values.email ?? rest[1]
+        if (!email) fail('user reset-password needs --email <email>')
+        let password = values.password
+        let generated = false
+        if (!password && !process.stdin.isTTY) {
+          const input = (await readStdin()).trim()
+          if (input) password = input.split(/\r?\n/)[0]
+        }
+        if (!password) {
+          // ponytail: 20 base64url chars, shown once; never written to a log.
+          password = randomBytes(15).toString('base64url')
+          generated = true
+        }
+        const result = auth.resetPassword({ email, password })
+        if (values.json) {
+          print({ ...result, email })
+          break
+        }
+        process.stdout.write(`✔ 已重置 ${email} 的密码；吊销会话 ${result.revokedSessions} 个\n`)
+        if (generated) {
+          process.stdout.write(`  新密码（只显示这一次）：${password}\n  请立即登录，并在 WebUI「设置与权限」里改成自己的密码。\n`)
+        } else {
+          process.stdout.write('  旧密码与所有旧会话已失效，请用新密码重新登录。\n')
+        }
+        break
+      }
+
       case 'tool': {
         if (!rest[0]) fail(`tool needs a name (${TOOL_DEFS.map((def) => def.name).join(', ')})`)
         const args = rest[1] !== undefined ? parseMaybeJson(rest[1]) : JSON.parse((await readStdin()) || '{}')

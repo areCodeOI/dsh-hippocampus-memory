@@ -81,3 +81,27 @@ test('webui: first run requires admin setup, then accepts the session token', as
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('webui: an occupied port reuses the healthy hippocampus service', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hippo-webui-port-'))
+  const store = new MemoryStore({ dbPath: path.join(dir, 'memory.db') })
+  const logger = { warn() {} }
+  const first = createWebUiService({ store, host: '127.0.0.1', port: 0, logger })
+  const started = await first.start()
+  const second = createWebUiService({ store, host: '127.0.0.1', port: started.port, logger })
+  try {
+    const reused = await second.start()
+    assert.equal(reused.external, true)
+    assert.equal(reused.origin, started.origin)
+    assert.equal(reused.port, started.port)
+    assert.equal(second.running, true)
+    assert.equal(second.external, true)
+    const health = await fetch(`${reused.origin}/health`).then((response) => response.json())
+    assert.equal(health.service, 'hippocampus-memory')
+  } finally {
+    second.stop()
+    first.stop()
+    store.close()
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})

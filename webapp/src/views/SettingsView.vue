@@ -62,6 +62,28 @@
         </el-table>
       </section>
 
+      <section class="hm-card">
+        <div class="hm-card-head"><h2>账号安全</h2><el-tag size="small" effect="plain">{{ auth?.role ?? '未登录' }}</el-tag></div>
+        <el-form label-position="top" class="hm-password-form">
+          <el-form-item label="当前密码"><el-input v-model="passwordForm.current" type="password" show-password autocomplete="current-password" /></el-form-item>
+          <el-form-item label="新密码（至少 8 位；首尾空格会被忽略）"><el-input v-model="passwordForm.next" type="password" show-password autocomplete="new-password" /></el-form-item>
+          <el-form-item label="再输入一次"><el-input v-model="passwordForm.confirm" type="password" show-password autocomplete="new-password" /></el-form-item>
+          <el-button type="primary" :loading="passwordSaving" @click="changePassword">修改我的密码</el-button>
+        </el-form>
+        <template v-if="isAdmin">
+          <el-divider />
+          <p class="hm-muted small">管理员重置：吊销该账号的全部会话，旧密码立即失效。</p>
+          <div class="hm-inline-actions">
+            <el-select v-model="resetForm.userId" placeholder="选择账号" style="width: 260px">
+              <el-option v-for="user in users" :key="user.id" :label="`${user.email} · ${user.role}`" :value="user.id" />
+            </el-select>
+            <el-input v-model="resetForm.password" type="password" show-password placeholder="该账号的新密码" style="width: 220px" />
+            <el-button type="danger" plain :loading="resetSaving" @click="resetPassword">重置并吊销会话</el-button>
+          </div>
+        </template>
+        <p class="hm-muted small">忘记密码：在插件目录运行 <code>node bin/hippocampus.mjs user reset-password --email 你@example.com</code>（见 <code>docs/FAQ.md#reset</code>）。</p>
+      </section>
+
       <section class="hm-card hm-danger-zone">
         <div class="hm-card-head"><h2>数据</h2></div>
         <div class="hm-inline-actions">
@@ -116,6 +138,11 @@ const keySaving = ref(false)
 const secret = ref('')
 const fileInput = ref(null)
 const keyForm = reactive({ name: '', role: 'reader', namespaces: '*' })
+const users = ref([])
+const passwordForm = reactive({ current: '', next: '', confirm: '' })
+const resetForm = reactive({ userId: '', password: '' })
+const passwordSaving = ref(false)
+const resetSaving = ref(false)
 const isAdmin = computed(() => props.auth?.role === 'admin')
 
 async function load() {
@@ -125,11 +152,49 @@ async function load() {
     if (isAdmin.value) {
       const data = await api('/api/keys')
       keys.value = data.keys
+      users.value = (await api('/api/users')).users
     }
   } catch (error) {
     ElMessage.error(error.message)
   } finally {
     loading.value = false
+  }
+}
+
+async function changePassword() {
+  if (!passwordForm.current || !passwordForm.next) return ElMessage.warning('请输入当前密码和新密码')
+  if (passwordForm.next.trim().length < 8) return ElMessage.warning('新密码至少 8 个字符')
+  if (passwordForm.next !== passwordForm.confirm) return ElMessage.warning('两次输入的新密码不一致')
+  passwordSaving.value = true
+  try {
+    const data = await api('/api/auth/password', {
+      method: 'POST',
+      body: { currentPassword: passwordForm.current, newPassword: passwordForm.next },
+    })
+    Object.assign(passwordForm, { current: '', next: '', confirm: '' })
+    ElMessage.success(`密码已更新；吊销了 ${data.revokedSessions ?? 0} 个其他会话`)
+  } catch (error) {
+    ElMessage.error(error.message)
+  } finally {
+    passwordSaving.value = false
+  }
+}
+
+async function resetPassword() {
+  if (!resetForm.userId) return ElMessage.warning('先选择账号')
+  if (resetForm.password.trim().length < 8) return ElMessage.warning('新密码至少 8 个字符')
+  resetSaving.value = true
+  try {
+    const data = await api(`/api/users/${encodeURIComponent(resetForm.userId)}/password`, {
+      method: 'PATCH',
+      body: { password: resetForm.password },
+    })
+    resetForm.password = ''
+    ElMessage.success(`已重置密码；吊销了 ${data.revokedSessions ?? 0} 个会话`)
+  } catch (error) {
+    ElMessage.error(error.message)
+  } finally {
+    resetSaving.value = false
   }
 }
 

@@ -243,6 +243,11 @@
           <el-input v-model="loginPassword" type="password" show-password placeholder="密码（至少 8 位）" autocomplete="current-password" />
           <el-input v-if="setupMode" v-model="loginConfirm" type="password" show-password placeholder="再输入一次密码" autocomplete="new-password" />
           <p v-if="loginError" class="hm-login-error">{{ loginError }}</p>
+          <p v-else-if="setupMode" class="hm-login-hint">密码首尾空格会被自动忽略；创建后请立即用同一密码登录确认。</p>
+          <p v-else class="hm-login-hint">
+            忘记密码？见 <code>docs/FAQ.md#reset</code>，或在插件目录运行
+            <code>node bin/hippocampus.mjs user reset-password --email 你的邮箱</code>。
+          </p>
           <el-button type="primary" native-type="submit" :loading="loggingIn">{{ setupMode ? '创建并进入' : '登录' }}</el-button>
           <span class="hm-login-hint">登录会话保存在本机浏览器；API key 在「设置 → 权限」管理</span>
         </form>

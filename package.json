@@ -38,6 +38,8 @@
   ],
   "scripts": {
     "test": "node test/run-tests.mjs",
+    "test:smoke": "node test/smoke-runtime.mjs",
+    "test:link": "node test/link-install.mjs",
     "start:mcp": "node bin/hippocampus-mcp.mjs",
     "start:http": "node bin/hippocampus-http.mjs"
   },
@@ -71,9 +73,19 @@
     }
   },
   "icon": "icon.svg",
-  "dependencies": {
-    "@deepseek-ai/schemastery": "^3.19.0",
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "^3.19.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
+  },
+  "optionalDependencies": {
     "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@deepseek-ai/schemastery": "^3.19.0"
   },
   "dshGo": {
     "v": 1,

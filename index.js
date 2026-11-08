@@ -6,7 +6,7 @@
  * `hippocampus-http` (REST/MCP-over-HTTP) for other models and languages.
  */
 
-import Schema from '@deepseek-ai/schemastery'
+import { loadSchema } from './lib/schema.js'
 import { MemoryStore } from './lib/store.js'
 import { TOOL_DEFS, callTool, renderToolResult, memorySystemPrompt } from './lib/tools.js'
 import { resolveStorageConfig } from './lib/paths.js'
@@ -17,15 +17,26 @@ import { registerDshGoUi } from './lib/dsh-go-ui.js'
 import { createWebUiService } from './lib/webui.js'
 import { vectorWeightFromEnv } from './lib/scoring.js'
 
-export const Config = Schema.object({
-  httpEnabled: Schema.boolean().default(true).description('启动本机 HTTP/WebUI（127.0.0.1:7337）'),
-  httpPort: Schema.natural().min(1).max(65535).default(7337).description('WebUI/REST 端口'),
-  namespace: Schema.string().default('default').description('默认记忆空间，用于隔离不同项目/agent'),
-  autoRecall: Schema.boolean().default(true).description('每轮对话前自动召回相关记忆'),
-  injectPrompt: Schema.boolean().default(true).description('向系统提示词注入记忆使用规范'),
-  autoReplay: Schema.boolean().default(true).description('后台自动回放/衰减/巩固'),
-  retrievalLimit: Schema.natural().min(1).max(50).default(5).description('memory_search 默认返回条数'),
-})
+// Loaded through lib/schema.js: a link install has no local node_modules, so a
+// static bare import would abort plugin activation before apply() runs.
+const Schema = await loadSchema()
+
+export const Config = Schema
+  ? Schema.object({
+      httpEnabled: Schema.boolean().default(true).description('启动本机 HTTP/WebUI（127.0.0.1:7337）'),
+      httpPort: Schema.natural().min(1).max(65535).default(7337).description('WebUI/REST 端口'),
+      namespace: Schema.string().default('default').description('默认记忆空间，用于隔离不同项目/agent'),
+      autoRecall: Schema.boolean().default(true).description('每轮对话前自动召回相关记忆'),
+      injectPrompt: Schema.boolean().default(true).description('向系统提示词注入记忆使用规范'),
+      autoReplay: Schema.boolean().default(true).description('后台自动回放/衰减/巩固'),
+      retrievalLimit: Schema.natural().min(1).max(50).default(5).description('memory_search 默认返回条数'),
+      corsOrigins: Schema.array(Schema.string())
+        .default([])
+        .description('额外允许的浏览器 Origin（也可用逗号分隔字符串）；桌面壳协议 dsh-app:/dsh: 默认放行'),
+    })
+  : // No schema builder: cordis keeps the raw config and apply() supplies the
+    // same defaults. Degrading is better than failing to activate the plugin.
+    undefined
 
 export const inject = ['tools']
 
@@ -78,9 +89,19 @@ export function apply(ctx, config = {}) {
     dshHome: process.env.DSH_HOME,
     storage,
     graphProvider: config.graphProvider,
+    corsOrigins: config.corsOrigins,
   })
   ctx.effect(() => () => webUi.stop(), 'hippocampus: WebUI server')
   console.warn(`[hippocampus] v${VERSION} loaded (WebUI button + memory_webui tool ready)`)
+  // A link install keeps the database inside the source checkout by default.
+  // Print the real path loudly so a reinstall/git clean cannot silently take it.
+  console.warn(`[hippocampus] data: ${store.dbPath} (dataLocation=${config.dataLocation || 'plugin'})`)
+  if (!config.dbPath && !config.dataDir && String(config.dataLocation || 'plugin').toLowerCase() !== 'dsh') {
+    console.warn(
+      '[hippocampus] hint: dataLocation=plugin keeps the SQLite file inside the plugin directory; ' +
+        'for a git checkout/link install set dataLocation=dsh (or dbPath) so updates cannot move it.',
+    )
+  }
 
   // dsh-go 手机 App 的原生界面（与 Host 工具共用同一个 store）。没有 dsh-go
   // 桥接时这里保持 pending，不影响 Web/桌面端。
@@ -225,9 +246,22 @@ export function apply(ctx, config = {}) {
 
   const httpEnabled = config.httpEnabled === true || process.env.HIPPOCAMPUS_HTTP_ENABLED === '1'
   if (httpEnabled) {
-    void webUi.start().catch((error) => {
-      console.warn('[hippocampus] HTTP server failed:', error instanceof Error ? error.message : String(error))
-    })
+    void webUi
+      .start()
+      .then((started) => {
+        if (started?.external) {
+          console.warn(
+            `[hippocampus] port ${started.port} is already served by another hippocampus instance; ` +
+              `using ${started.origin} instead of starting a second server`,
+          )
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          `[hippocampus] HTTP server failed: ${error instanceof Error ? error.message : String(error)}` +
+            (error?.code === 'EADDRINUSE' ? ` (port ${httpPort} busy; set httpPort or close the other process)` : ''),
+        )
+      })
   }
   if (config.autoReplay !== false) {
     const hours = clamp(Number(config.replayIntervalHours) || 24, 1, 24 * 30)

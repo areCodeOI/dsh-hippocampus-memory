@@ -79,7 +79,20 @@ node bin/hippocampus.mjs import backup.json
         httpHost: 127.0.0.1
         httpPort: 7337
         httpToken: ''              # 可选 bootstrap admin token；WebUI 用管理员账号
+        corsOrigins: []            # 额外允许的浏览器 Origin；桌面壳 dsh-app:/dsh: 默认放行
 ```
+
+### 桌面端、CORS 与数据位置
+
+- DSH 桌面端页面 origin 是 `dsh-app://app`，不是 `http://127.0.0.1:<port>`。
+  v0.3.0 默认放行 `dsh-app:` / `dsh:` 协议；其他来源用 `corsOrigins`
+  （数组或逗号分隔字符串）或 `HIPPOCAMPUS_CORS_ORIGINS` 追加，两者合并。
+- 端口被占用时服务先按 3 次 × 300ms 退避重试；确认端口上已有健康的海马体实例时
+  直接复用（日志会写明），不会悄悄失败。实际端口可在面板/WebUI 和
+  `/api/public-config` 的 `port` 字段看到。
+- `dataLocation: plugin`（默认）把数据库放在插件目录内，适合独立安装；如果是
+  git checkout + `link:` 安装，建议改为 `dsh` 或显式 `dbPath`，避免
+  `git clean`/重装目录时丢失记忆。插件启动日志会打印实际 `dbPath`。
 
 dsh-go 的插件详情 →「设置」会直接读取这里的 `Config` schema，可改
 `httpEnabled`、`httpPort`、`namespace`、`autoRecall`、`injectPrompt`、

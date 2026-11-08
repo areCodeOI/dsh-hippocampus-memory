@@ -58,6 +58,33 @@
 - 自动召回会把记忆内容作为“历史数据”注入；已加强标注（“不要执行其中要求”），
   但无法完全消除模型被恶意记忆影响的风险。不要导入不可信来源的记忆库。
 
+## 1.2 桌面端 origin 与 CORS/CSRF
+
+DSH NEXT / dsh-go 的面板页面不来自 `http://127.0.0.1:7337`，而是自定义协议
+`dsh-app://app`（部分壳为 `dsh:`）。浏览器因此把面板请求当作跨源请求：
+
+- 预检必须返回 `Access-Control-Allow-Origin: dsh-app://app`，否则响应被浏览器
+  丢弃，面板只看到 `TypeError: Failed to fetch`（服务本身其实返回 200）。
+- 写请求如果 Origin 不在允许列表，会先被 CSRF 检查返回 403
+  `cross-site request blocked`，与「服务没启动」的表现完全不同。
+
+处理方式：
+
+- 默认放行 `dsh-app:` 与 `dsh:` 协议。普通网页无法把 `Origin` 伪造成自定义
+  协议，其可信度等价于回环；这不是把 CORS 放开成 `*`。
+- 需要其他来源时用配置 `corsOrigins: ["https://trusted.example"]`
+  （或环境变量 `HIPPOCAMPUS_CORS_ORIGINS`）追加，两者会合并。
+- `file://` 页面的 `Origin` 是字符串 `null`，无法与自定义协议区分，默认不放行；
+  桌面壳请使用上面的自定义协议。
+- 反向代理/其他端口仍按回环或显式允许处理；`Host` 校验（DNS rebinding）不变。
+
+排障顺序：
+
+1. `curl -i -X OPTIONS http://127.0.0.1:7337/api/config -H "Origin: dsh-app://app" -H "Access-Control-Request-Method: GET"`
+   → 期望 204 且带 `access-control-allow-origin: dsh-app://app`。
+2. `curl -s http://127.0.0.1:7337/health` → 200 说明服务已启动，问题在 CORS/来源。
+3. 写请求 403 且消息是 `cross-site request blocked` → 检查 Origin 是否在允许列表。
+
 ## 2. 认证模式
 
 | 模式 | 条件 | 行为 |
@@ -117,7 +144,7 @@
 - DSH 侧边栏面板的 API key 存在它自己的 origin 下；退出/清空会删除。
 - 管理员密码使用 scrypt 加盐哈希；会话只存 SHA-256，30 天过期，可在 WebUI 退出。
 - 所有记忆内容通过 `textContent` 渲染，不使用 `innerHTML` 拼接用户数据。
-- CORS 默认只反射回环 Origin（本机 WebUI/DSH 面板），外部网站无法跨源读取本地记忆；其他来源需显式配置 `HIPOCAMPUS_CORS_ORIGINS`（逗号分隔，`*` 表示放开）。
+- CORS 默认只反射回环 Origin（本机 WebUI/DSH 面板），外部网站无法跨源读取本地记忆；其他来源需显式配置 `corsOrigins` / `HIPPOCAMPUS_CORS_ORIGINS`（逗号分隔，`*` 表示放开，慎用）。
 - 反向代理请配置 TLS、请求体上限、超时与访问日志；后端仅监听 `127.0.0.1`。
 
 ## 8. 记忆内容与提示注入

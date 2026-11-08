@@ -110,3 +110,50 @@ test('auth: first admin setup creates a revocable session, then login works', ()
   assert.equal(auth.verify(login.token, { isLoopback: true }).ok, false)
   store.close()
 })
+
+test('auth: passwords are trimmed and change/reset revoke the right sessions', () => {
+  const { auth, store } = makeAuth()
+  const created = auth.registerAdmin({ email: 'trim@example.com', password: '  correct horse battery  ' })
+  // Outer whitespace is ignored on both registration and login.
+  assert.equal(auth.login({ email: 'trim@example.com', password: 'correct horse battery' }).user.email, 'trim@example.com')
+  assert.equal(auth.login({ email: 'trim@example.com', password: '  correct horse battery  ' }).user.email, 'trim@example.com')
+
+  const sessionId = auth.verify(created.token, { isLoopback: true }).auth.sessionId
+  assert.ok(sessionId, 'session auth exposes its id for keep-current-session')
+  assert.throws(
+    () => auth.changePassword({ userId: created.user.id, currentPassword: 'wrong', newPassword: 'new password 123' }),
+    /current password/,
+  )
+  const changed = auth.changePassword({
+    userId: created.user.id,
+    currentPassword: 'correct horse battery',
+    newPassword: '  new password 123  ',
+    keepSessionId: sessionId,
+  })
+  assert.equal(changed.ok, true)
+  assert.ok(changed.revokedSessions >= 2, 'other sessions created by the two logins are revoked')
+  assert.equal(auth.verify(created.token, { isLoopback: true }).ok, true, 'the changing session stays valid')
+  assert.throws(() => auth.login({ email: 'trim@example.com', password: 'correct horse battery' }), /invalid/)
+  assert.equal(auth.login({ email: 'trim@example.com', password: 'new password 123' }).user.email, 'trim@example.com')
+
+  const reset = auth.resetPassword({ email: 'trim@example.com', password: 'reset password 456' })
+  assert.ok(reset.revokedSessions >= 1)
+  assert.equal(auth.verify(created.token, { isLoopback: true }).ok, false, 'admin reset revokes every session')
+  assert.equal(auth.login({ email: 'trim@example.com', password: 'reset password 456' }).user.email, 'trim@example.com')
+  const listed = auth.listUsers()
+  assert.equal(listed[0].email, 'trim@example.com')
+  assert.equal('password_hash' in listed[0], false)
+  store.close()
+})
+
+test('auth: refreshRequired notices users removed out of band', () => {
+  const { auth, store } = makeAuth()
+  assert.equal(auth.authRequired, false)
+  auth.registerAdmin({ email: 'again@example.com', password: 'password 123' })
+  assert.equal(auth.authRequired, true)
+  store.db.exec('DELETE FROM sessions; DELETE FROM users;')
+  assert.equal(auth.refreshRequired(), false)
+  assert.equal(auth.authRequired, false)
+  assert.equal(auth.verify(null, { isLoopback: true }).ok, true)
+  store.close()
+})

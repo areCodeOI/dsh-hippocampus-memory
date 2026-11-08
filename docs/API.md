@@ -17,7 +17,7 @@ HIPPOCAMPUS_TOKEN=change-me node bin/hippocampus-http.mjs --host 0.0.0.0 --port 
 - 认证：`Authorization: Bearer <token>` 或 `X-Api-Key: <token>`。`HIPPOCAMPUS_TOKEN` 是 bootstrap admin；API key 有 `reader` / `writer` / `admin` 角色与 namespace 白名单。
 - 只读端点只接受 `GET`（如 `/api/stats`、`/api/export`），错误方法返回 `405` 并带 `Allow` 头。
 - 未配置 token 时，**回环请求**自动本地 admin；非回环仍需 key。`HIPPOCAMPUS_AUTH=required` 强制回环也认证。
-- CORS 只反射回环 Origin（`127.0.0.1` / `localhost` / `::1`）与 `HIPOCAMPUS_CORS_ORIGINS` 允许列表；`OPTIONS` 预检返回 204。
+- CORS 默认反射回环 Origin（`127.0.0.1` / `localhost` / `::1`）与桌面壳协议（`dsh-app:` / `dsh:`），外部网站无法跨源读取本地记忆；其他来源用 `corsOrigins` / `HIPPOCAMPUS_CORS_ORIGINS` 追加允许列表；`OPTIONS` 预检返回 204。
 - 跨站写请求（非允许 Origin / Fetch Metadata `cross-site`）返回 403；请求体必须是 JSON（否则 415）；未信任 Host 返回 421。
 - 机器可读的 OpenAPI：`GET /openapi.json`。
 - 公共端点：`/health`、`/ready`、`/api/public-config`、静态 UI 资源；其余按角色保护。
@@ -37,6 +37,9 @@ HIPPOCAMPUS_TOKEN=change-me node bin/hippocampus-http.mjs --host 0.0.0.0 --port 
 | `POST` | `/api/auth/login` | 邮箱/密码登录，返回 30 天会话 token |
 | `POST` | `/api/auth/logout` | 注销会话 |
 | `GET` | `/api/auth/check` | 校验会话/API key，返回角色/namespace/服务配置 |
+| `POST` | `/api/auth/password` | 修改自己的密码（需会话）：`{currentPassword,newPassword}` |
+| `GET` | `/api/users` | 账号列表（admin；不含密码哈希） |
+| `PATCH` | `/api/users/{id}/password` | 管理员重置密码（admin；吊销该用户全部会话） |
 | `POST` | `/mcp` | MCP JSON-RPC（见 [MCP.md](MCP.md)） |
 | `GET` | `/metrics` | Prometheus 指标（默认 admin；`?token=` 也可） |
 | `GET` | `/api/tools` | 工具定义列表 |
@@ -62,6 +65,7 @@ HIPPOCAMPUS_TOKEN=change-me node bin/hippocampus-http.mjs --host 0.0.0.0 --port 
 | `DELETE` | `/api/keys/{id}` | 吊销 key（admin） |
 | `GET` | `/api/config` | 安全配置/缓存/队列/嵌入状态（admin） |
 | `GET` | `/api/monitor` | 运行时监控 JSON（reader） |
+| `GET` | `/api/overview` | 面板聚合：统计、最近记忆、任务与端口 |
 | `GET` | `/api/export` | 导出 JSON 快照；按 key namespace 限制 |
 | `POST` | `/api/import` | 导入 JSON 快照（admin） |
 | `GET` | `/openapi.json` | OpenAPI 3.1 文档 |

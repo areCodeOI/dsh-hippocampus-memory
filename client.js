@@ -67,11 +67,24 @@ window.__ModuleLoader__.load({
     const KIND_ORDER = ['persona', 'semantic', 'episodic', 'buffer']
     const STATUS_LABEL = { active: '有效', conflict: '待确认', archived: '已归档', pending_delete: '待删除', superseded: '已取代' }
 
+    const DEFAULT_BASE = 'http://127.0.0.1:7337'
+    function shellOrigin() {
+      // dsh-app://app has no meaningful hostname (it may be "app" or ""), so it
+      // must never be used to build a network URL. Report the real page origin.
+      if (location.origin && location.origin !== 'null') return location.origin
+      return `${location.protocol}//${location.host || ''}`
+    }
     function defaultBase() {
       const saved = localStorage.getItem('hippocampus.apiBase')
-      if (saved) return saved.replace(/\/+$/, '')
-      const host = location.hostname || '127.0.0.1'
-      return `${location.protocol === 'https:' ? 'https' : 'http'}://${host}:7337`
+      if (saved) {
+        const cleaned = saved.replace(/\/+$/, '')
+        // Older builds could persist http://app:7337 from dsh-app://app.
+        if (!/^https?:\/\/app(:\d+)?$/i.test(cleaned)) return cleaned
+      }
+      const { protocol, hostname } = location
+      // Desktop shell / file: the HTTP service is always on loopback.
+      if (protocol !== 'http:' && protocol !== 'https:') return DEFAULT_BASE
+      return `${protocol === 'https:' ? 'https' : 'http'}://${hostname || '127.0.0.1'}:7337`
     }
     function savedToken() {
       // Persist the panel token so a DSH/App restart does not ask again. The
@@ -115,13 +128,34 @@ window.__ModuleLoader__.load({
           signal: controller.signal,
         })
       } catch (error) {
-        const reason = controller.signal.aborted ? '连接超时（HTTP 服务可能未启动）' : error.message
-        throw new Error(`无法连接 ${base}：${reason}`)
+        const aborted = error?.name === 'AbortError' || controller.signal.aborted
+        // Distinguish "nothing listening / blocked before the server" from a
+        // slow server and from auth errors; "Failed to fetch" alone sends users
+        // hunting for a server problem that is actually CORS or a missing token.
+        const failure = new Error(
+          aborted
+            ? `连接超时：${base} 在 5 秒内无响应，HTTP 服务可能卡住或端口被占用。`
+            : `无法访问 ${base}：HTTP 服务未启动，或网络不通，或被浏览器 CORS 拦截（DSH 桌面端需放行 dsh-app:// 来源）。`,
+        )
+        failure.kind = aborted ? 'timeout' : 'network'
+        failure.cause = error
+        throw failure
       } finally {
         clearTimeout(timer)
       }
       const data = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(data.error?.message || `HTTP ${response.status}`)
+      if (!response.ok) {
+        const detail = data.error?.message || `HTTP ${response.status}`
+        const hint =
+          response.status === 401
+            ? '需要 API token：在 WebUI「设置 → 权限」生成后填入下方；忘记密码见 docs/FAQ.md#reset。'
+            : response.status === 403
+              ? '权限不足，或被跨站保护拦截。'
+              : ''
+        const failure = new Error(hint ? `${hint}（${detail}）` : detail)
+        failure.status = response.status
+        throw failure
+      }
       return data
     }
 
@@ -185,6 +219,10 @@ window.__ModuleLoader__.load({
       const [refresh, setRefresh] = useState(0)
       const [baseDraft, setBaseDraft] = useState(base)
       const [tokenDraft, setTokenDraft] = useState(token)
+      const [serverInfo, setServerInfo] = useState(null)
+      const [pwd, setPwd] = useState({ current: '', next: '', confirm: '' })
+      const [reset, setReset] = useState({ email: '', password: '', users: [] })
+      const [accountNotice, setAccountNotice] = useState('')
 
       const load = useCallback(async () => {
         setLoading(true)
@@ -220,6 +258,15 @@ window.__ModuleLoader__.load({
       }, [tab, base, token, searchTick])
 
       useEffect(() => { load() }, [load, refresh])
+      // Service version/port for the header: /api/public-config is unauthenticated,
+      // so this also works while the panel has no usable token yet.
+      useEffect(() => {
+        let alive = true
+        request(base, token, '/api/public-config')
+          .then((data) => { if (alive) setServerInfo(data) })
+          .catch(() => { if (alive) setServerInfo(null) })
+        return () => { alive = false }
+      }, [base, token])
       useEffect(() => {
         if (tab !== 'jobs') return undefined
         const timer = setInterval(load, 3000)
@@ -299,6 +346,51 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const changePassword = async () => {
+        setAccountNotice('')
+        if (!pwd.current || !pwd.next) return setAccountNotice('请输入当前密码和新密码')
+        if (pwd.next.trim().length < 8) return setAccountNotice('新密码至少 8 个字符（首尾空格会被忽略）')
+        if (pwd.next !== pwd.confirm) return setAccountNotice('两次输入的新密码不一致')
+        try {
+          const data = await request(base, token, '/api/auth/password', {
+            method: 'POST',
+            body: { currentPassword: pwd.current, newPassword: pwd.next },
+          })
+          setPwd({ current: '', next: '', confirm: '' })
+          setAccountNotice(`✔ 密码已更新；吊销了 ${data?.revokedSessions ?? 0} 个其他会话，当前会话保持登录。`)
+        } catch (err) {
+          setAccountNotice(`✖ ${err.message}`)
+        }
+      }
+
+      const loadUsers = async () => {
+        try {
+          const data = await request(base, token, '/api/users')
+          setReset((value) => ({ ...value, users: data.users || [] }))
+          setAccountNotice(`已加载 ${data.users?.length ?? 0} 个账号`)
+        } catch (err) {
+          setAccountNotice(`✖ 加载账号失败：${err.message}`)
+        }
+      }
+
+      const resetPassword = async () => {
+        setAccountNotice('')
+        const email = reset.email.trim().toLowerCase()
+        const target = reset.users.find((user) => user.email === email)
+        if (!target) return setAccountNotice('先在列表里选择一个账号')
+        if (reset.password.trim().length < 8) return setAccountNotice('新密码至少 8 个字符（首尾空格会被忽略）')
+        try {
+          const data = await request(base, token, `/api/users/${encodeURIComponent(target.id)}/password`, {
+            method: 'PATCH',
+            body: { password: reset.password },
+          })
+          setReset({ email: '', password: '', users: reset.users })
+          setAccountNotice(`✔ 已重置 ${target.email}；吊销了 ${data?.revokedSessions ?? 0} 个会话。`)
+        } catch (err) {
+          setAccountNotice(`✖ ${err.message}`)
+        }
+      }
+
       const tabs = [
         ['overview', '总览'],
         ['memories', '记忆库'],
@@ -319,7 +411,16 @@ window.__ModuleLoader__.load({
           ]),
           h('div', { className: 'hmr-head-actions', key: 'actions' }, [
             h('span', { key: 'dot', className: `hmr-dot ${error ? 'err' : 'ok'}` }),
-            h('span', { key: 'base', className: 'hmr-code', style: { maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, base),
+            h(
+              'span',
+              {
+                key: 'base',
+                className: 'hmr-code',
+                style: { maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+                title: `API ${base} · 服务 ${serverInfo?.version ? 'v' + serverInfo.version : '未知'} · 实际端口 ${serverInfo?.port ?? '—'} · 页面来源 ${shellOrigin()}`,
+              },
+              `${serverInfo?.version ? 'v' + serverInfo.version + ' · ' : ''}${base.replace(/^https?:\/\//, '')}`,
+            ),
             h('button', { key: 'refresh', className: 'hmr-btn', onClick: () => setRefresh((value) => value + 1) }, '刷新'),
             h('button', { key: 'star', className: 'hmr-btn', onClick: () => window.open(`${base}/#/star`, '_blank', 'noopener') }, '星图'),
             h('button', { key: 'tree', className: 'hmr-btn', onClick: () => window.open(`${base}/#/tree`, '_blank', 'noopener') }, '树'),
@@ -334,7 +435,12 @@ window.__ModuleLoader__.load({
         h('div', { className: 'hmr-content', key: 'content' }, [
           error ? h('div', { className: 'hmr-notice', key: 'err' }, [
             h('div', { key: 'msg' }, error),
-            h('div', { className: 'hmr-code', style: { marginTop: 6 }, key: 'code' }, '确认独立 HTTP 服务已启动（默认 7337），或在「设置」里修改 API 地址 / token。'),
+            h(
+              'div',
+              { className: 'hmr-code', style: { marginTop: 6 }, key: 'code' },
+              `API ${base} · 页面来源 ${shellOrigin()} · 确认 HTTP 服务已启动（默认 7337）。` +
+                '桌面端（dsh-app://app）需要服务放行该 Origin；服务未启动时会提示「连接超时」而不是 Failed to fetch。',
+            ),
           ]) : null,
           loading ? h('div', { className: 'hmr-empty', key: 'loading' }, '加载中…') : null,
           !loading && tab === 'overview' ? h('div', { key: 'overview', className: 'hmr-grid hmr-stats' }, [
@@ -451,10 +557,40 @@ window.__ModuleLoader__.load({
               h('h2', {}, '服务信息'),
               config ? h('div', { className: 'hmr-kv' }, [
                 ['版本', config.version], ['数据库', config.dbPath], ['认证', config.authRequired ? '需要 token' : '本机管理员'],
+                ['实际端口', config.port ?? serverInfo?.port ?? '—'], ['页面来源', shellOrigin()],
                 ['存储', config.storage?.driver === 'postgres' ? `PostgreSQL${config.storage.pgvector ? '+pgvector' : ''}` : 'SQLite'],
                 ['图', config.graphProvider ?? 'projection'],
+                ['CORS 额外来源', (config.corsOrigins || []).join(', ') || '默认（含 dsh-app: / dsh:）'],
                 ['嵌入', config.embeddings?.enabled ? 'hybrid' : 'off'], ['缓存', `${config.cache?.search?.entries ?? 0} 搜索`],
               ].map(([key, value]) => h('div', { key }, [h('span', { key: 'k' }, key), h('b', { key: 'v', title: String(value) }, String(value ?? '—'))]))) : h('div', { className: 'hmr-empty' }, '加载中'),
+            ]),
+            h('div', { className: 'hmr-card', style: { gridColumn: '1/-1' } }, [
+              h('h2', {}, '账号安全'),
+              h('div', { className: 'hmr-code', style: { marginBottom: 8 } }, '修改密码需要管理员会话（WebUI 登录后使用）；没有会话时用管理员重置或 CLI。'),
+              h('div', { className: 'hmr-form' }, [
+                h('label', { className: 'full', key: 'cur' }, [h('span', {}, '当前密码'), h('input', { type: 'password', autoComplete: 'current-password', value: pwd.current, onChange: (event) => setPwd({ ...pwd, current: event.target.value }) })]),
+                h('label', { key: 'next' }, [h('span', {}, '新密码（≥8 位）'), h('input', { type: 'password', autoComplete: 'new-password', value: pwd.next, onChange: (event) => setPwd({ ...pwd, next: event.target.value }) })]),
+                h('label', { key: 'confirm' }, [h('span', {}, '再输入一次'), h('input', { type: 'password', autoComplete: 'new-password', value: pwd.confirm, onChange: (event) => setPwd({ ...pwd, confirm: event.target.value }) })]),
+              ]),
+              h('div', { className: 'hmr-actions' }, [
+                h('button', { key: 'change', className: 'hmr-btn primary', onClick: changePassword }, '修改我的密码'),
+                h('button', { key: 'users', className: 'hmr-btn', onClick: loadUsers }, '刷新账号列表'),
+              ]),
+              h('div', { className: 'hmr-form' }, [
+                h('label', { className: 'full', key: 'user' }, [
+                  h('span', {}, '管理员重置（需 admin 权限）'),
+                  h('select', { value: reset.email, onChange: (event) => setReset({ ...reset, email: event.target.value }) }, [
+                    h('option', { key: 'none', value: '' }, '选择账号'),
+                    ...reset.users.map((user) => h('option', { key: user.id, value: user.email }, `${user.email} · ${user.role}`)),
+                  ]),
+                ]),
+                h('label', { className: 'full', key: 'new' }, [h('span', {}, '该账号的新密码'), h('input', { type: 'password', autoComplete: 'new-password', value: reset.password, onChange: (event) => setReset({ ...reset, password: event.target.value }) })]),
+              ]),
+              h('div', { className: 'hmr-actions' }, [
+                h('button', { key: 'reset', className: 'hmr-btn danger', onClick: resetPassword }, '重置该账号密码并吊销会话'),
+              ]),
+              accountNotice ? h('div', { className: 'hmr-code', style: { marginTop: 8 } }, accountNotice) : null,
+              h('p', { className: 'hmr-code', style: { marginTop: 10 } }, '忘记密码或没有会话时：node bin/hippocampus.mjs user reset-password --email 你@example.com（会吊销该账号全部会话；详见 docs/FAQ.md#reset）。'),
             ]),
           ]) : null,
         ]),

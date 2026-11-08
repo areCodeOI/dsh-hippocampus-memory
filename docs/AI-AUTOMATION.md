@@ -55,6 +55,13 @@
 5. 不要删除项目目录，不要 push。
 ```
 
+> **链接安装（`link:`）不需要在插件目录手工 `pnpm install`。** v0.3.0 起
+> `lib/schema.js` 会依次从插件自身、DSH profile 的 `node_modules`、Electron
+> `app.asar` 解析 `@deepseek-ai/schemastery`；全都找不到时以「无配置 schema」
+> 降级激活（cordis 会把原始 config 直接传给插件）。因此不会再有
+> `ERR_MODULE_NOT_FOUND: @deepseek-ai/schemastery` 导致的整体安装失败。
+> 若仍报该错，先确认插件目录至少有 `index.js`、`lib/`、`package.json`。
+
 ## 3. 场景 C：让 AI 接入 Claude / Cursor 等 MCP 客户端
 
 ```text

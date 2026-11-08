@@ -32,3 +32,28 @@ A：可以。分词对英文按单词、CJK 按二元组；记忆内容建议统
 **Q：Node 版本不够？**
 A：`node:sqlite` 需要 ≥ 22.13（22.5–22.12 需 `--experimental-sqlite`）。低于此版本请升级 Node。
 
+<a id="reset"></a>
+## 忘记密码 / 重置密码
+
+v0.3.0 之前只能直接改 SQLite；现在有三种方式：
+
+1. **已登录 WebUI / 会话**：`POST /api/auth/password`
+   `{"currentPassword":"旧密码","newPassword":"新密码"}`。需要会话 token；
+   旧密码错误返回 401；成功后保留当前会话、吊销其他会话。
+2. **管理员重置**：`PATCH /api/users/{id}/password` `{"password":"新密码"}`
+   （admin 角色，吊销该用户全部会话）；`GET /api/users` 可先取 id。
+3. **命令行（忘记密码时推荐）**：
+
+   ```bash
+   node bin/hippocampus.mjs user list
+   node bin/hippocampus.mjs user reset-password --email you@example.com
+   # 省略 --password 会生成一次性强密码并只显示一次；也可以显式传入
+   ```
+
+   重置会吊销该账号的全部会话，旧密码立即失效。
+
+注意：密码首尾空格会被自动忽略（注册/登录/改密一致），复制密码时带空格不会再
+造成「注册成功、登录永远失败」。全角字符是不同字符，请确认输入法。
+
+排查「注册成功但登录失败」：先确认邮箱大小写（统一小写）与首尾空格；仍不行就重置。
+
