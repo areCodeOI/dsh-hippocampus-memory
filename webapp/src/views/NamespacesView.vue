@@ -6,7 +6,7 @@
         <div class="hm-card-head">
           <h2>命名空间</h2>
           <div class="hm-inline-actions">
-            <el-input v-model="newName" size="small" placeholder="新空间名称" style="width: 190px" maxlength="64" @keyup.enter="openCreate" />
+            <el-input v-if="isAdmin" v-model="newName" size="small" placeholder="新空间名称" style="width: 190px" maxlength="64" @keyup.enter="openCreate" />
             <el-button v-if="isAdmin" size="small" type="primary" @click="openCreate">新建</el-button>
             <el-button size="small" @click="load">刷新</el-button>
           </div>
@@ -68,6 +68,7 @@
     <el-dialog v-model="renameOpen" title="重命名命名空间" width="min(460px, 92vw)">
       <p class="hm-muted small">将 <code>{{ renameRow?.name }}</code> 重命名为：</p>
       <el-input v-model="renameTo" maxlength="64" show-word-limit />
+      <el-checkbox v-if="renameRow?.name === defaultNamespace" v-model="renameForce">force（默认空间受配置保护，重命名后请同步修改插件配置）</el-checkbox>
       <p class="hm-muted small">API key 的空间白名单和排队任务会同步迁移；历史审计保留旧名称。</p>
       <template #footer>
         <el-button @click="renameOpen = false">取消</el-button>
@@ -80,6 +81,7 @@
       <el-select v-model="mergeInto" placeholder="选择目标空间" style="width: 100%">
         <el-option v-for="item in mergeTargets" :key="item.name" :label="item.name" :value="item.name" />
       </el-select>
+      <el-checkbox v-if="mergeRow?.name === defaultNamespace" v-model="mergeForce">force（默认空间受配置保护，合并后请同步修改插件配置）</el-checkbox>
       <p class="hm-muted small">目标不存在时可先新建；内容完全相同的 active 记忆会去重合并，其余迁移。</p>
       <template #footer>
         <el-button @click="mergeOpen = false">取消</el-button>
@@ -135,9 +137,11 @@ const createName = ref('')
 const renameOpen = ref(false)
 const renameRow = ref(null)
 const renameTo = ref('')
+const renameForce = ref(false)
 const mergeOpen = ref(false)
 const mergeRow = ref(null)
 const mergeInto = ref('')
+const mergeForce = ref(false)
 const mergeTargets = computed(() => items.value.filter((item) => item.name !== mergeRow.value?.name))
 const deleteOpen = ref(false)
 const deleteRow = ref(null)
@@ -155,7 +159,7 @@ async function load() {
   try {
     const data = await api('/api/namespaces')
     items.value = data.namespaces ?? []
-    defaultNamespace.value = data.default ?? 'default'
+    defaultNamespace.value = data.default ?? ''
   } catch (error) {
     ElMessage.error(error.message)
   } finally {
@@ -194,6 +198,7 @@ async function doCreate() {
 function openRename(row) {
   renameRow.value = row
   renameTo.value = row.name
+  renameForce.value = false
   renameOpen.value = true
 }
 
@@ -204,7 +209,7 @@ async function doRename() {
   try {
     const result = await api('/api/namespaces/' + encodeURIComponent(renameRow.value.name), {
       method: 'PATCH',
-      body: { to },
+      body: { to, force: renameForce.value },
     })
     if (props.namespace === renameRow.value.name) emit('namespace-change', result.to)
     renameOpen.value = false
@@ -221,6 +226,7 @@ async function doRename() {
 function openMerge(row) {
   mergeRow.value = row
   mergeInto.value = ''
+  mergeForce.value = false
   mergeOpen.value = true
 }
 
@@ -230,7 +236,7 @@ async function doMerge() {
   try {
     const result = await api('/api/namespaces/' + encodeURIComponent(mergeRow.value.name) + '/merge', {
       method: 'POST',
-      body: { into: mergeInto.value },
+      body: { into: mergeInto.value, force: mergeForce.value },
     })
     if (props.namespace === mergeRow.value.name) emit('namespace-change', result.into)
     mergeOpen.value = false

@@ -344,6 +344,9 @@ curl -s http://127.0.0.1:7337/api/conflicts
 
 `/api/stats` 返回总量、分层/状态分布、namespace 分布、标签排行、数据库路径/大小、上次回放时间、未解决冲突数。
 
+`POST /api/tools/memory_stats`（以及 MCP `tools/call`）返回同样的统计，但按 key 的 namespace 白名单过滤；
+`/api/stats`、`/api/overview`、`/api/namespaces` 同样只返回有权访问的空间。
+
 ---
 
 ## 按工具名调用

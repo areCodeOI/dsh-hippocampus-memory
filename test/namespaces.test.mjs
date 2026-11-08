@@ -68,17 +68,21 @@ test('namespaces: reserve, list, rename memories/keys/jobs', () => {
 test('namespaces: merge migrates memories and dedupes exact active facts', () => {
   const { store } = makeStore()
   store.add({ content: '项目使用 PostgreSQL 16。', kind: 'semantic', namespace: 'default', confirmed: true, importance: 7, tags: ['infra'] })
+  store.add({ content: '用户对花生过敏。', kind: 'semantic', namespace: 'default', confirmed: true, importance: 5 })
   store.add({ content: '项目使用 PostgreSQL 16。', kind: 'semantic', namespace: 'project-a', confirmed: true, importance: 9, tags: ['db'] })
+  store.add({ content: '用户对花生过敏。', kind: 'persona', namespace: 'project-a', confirmed: true, importance: 10 })
   store.add({ content: '项目部署窗口是周三。', kind: 'semantic', namespace: 'project-a', confirmed: true })
 
   const result = mergeNamespaces(store, 'project-a', 'default')
-  assert.equal(result.deduped, 1)
+  assert.equal(result.deduped, 2)
   assert.equal(result.moved, 1)
   const rows = store.list({ namespace: 'default', limit: 10 }).items
-  assert.equal(rows.length, 2)
+  assert.equal(rows.length, 3)
   const merged = rows.find((row) => row.content.includes('PostgreSQL'))
   assert.equal(merged.importance, 9)
   assert.deepEqual([...merged.tags].sort(), ['db', 'infra'])
+  const allergy = rows.find((row) => row.content.includes('花生'))
+  assert.equal(allergy.kind, 'persona', 'merge must not downgrade persona to semantic')
   assert.equal(listNamespaces(store).namespaces.some((entry) => entry.name === 'project-a'), false)
 })
 
@@ -109,10 +113,14 @@ test('namespaces HTTP: list/create/rename/merge/delete with roles and stats', as
   const reader = auth.createKey({ name: 'reader', role: 'reader', namespaces: ['default'] })
   const readerHeaders = { authorization: `Bearer ${reader.key}`, 'content-type': 'application/json' }
 
+  store.add({ content: 'default 空间的记忆。', kind: 'semantic', namespace: 'default', confirmed: true })
   const created = await jsonFetch(base, '/api/namespaces', { method: 'POST', headers: admin, body: JSON.stringify({ name: 'project-a' }) })
   assert.equal(created.status, 201)
 
   store.add({ content: '项目 A 的记忆。', kind: 'semantic', namespace: 'project-a', confirmed: true })
+  store.add({ content: 'secret 空间的记忆。', kind: 'semantic', namespace: 'secret', confirmed: true })
+  store.add({ content: '用户对花生过敏。', kind: 'persona', namespace: 'secret', confirmed: true })
+  store.add({ content: '用户对花生不过敏。', kind: 'persona', namespace: 'secret', confirmed: true })
   const overview = await jsonFetch(base, '/api/overview?namespace=project-a', { headers: admin })
   assert.equal(overview.data.selectedNamespace, 'project-a')
   assert.equal(overview.data.stats.totals.all, 1)
@@ -124,8 +132,37 @@ test('namespaces HTTP: list/create/rename/merge/delete with roles and stats', as
 
   const readerList = await jsonFetch(base, '/api/namespaces', { headers: readerHeaders })
   assert.equal(readerList.data.namespaces.some((entry) => entry.name === 'project-a'), false)
+  assert.equal(readerList.data.default, 'default')
   const readerCreate = await jsonFetch(base, '/api/namespaces', { method: 'POST', headers: readerHeaders, body: JSON.stringify({ name: 'nope' }) })
   assert.equal(readerCreate.status, 403)
+
+  // A restricted key must not learn an unreadable default namespace name.
+  const restricted = auth.createKey({ name: 'restricted', role: 'admin', namespaces: ['project-a'] })
+  const restrictedList = await jsonFetch(base, '/api/namespaces', {
+    headers: { authorization: `Bearer ${restricted.key}`, 'content-type': 'application/json' },
+  })
+  assert.equal(restrictedList.data.default, null)
+  assert.deepEqual(restrictedList.data.namespaces.map((entry) => entry.name), ['project-a'])
+
+  // Reader stats (HTTP tool + MCP) must not expose counts from other spaces.
+  const toolStats = await jsonFetch(base, '/api/tools/memory_stats', { method: 'POST', headers: readerHeaders, body: '{}' })
+  assert.equal(toolStats.status, 200)
+  assert.equal(toolStats.data.byNamespace.secret, undefined)
+  assert.equal(toolStats.data.byNamespace.default, 1)
+  const toolConflicts = await jsonFetch(base, '/api/tools/memory_stats', {
+    method: 'POST',
+    headers: readerHeaders,
+    body: JSON.stringify({ includeConflicts: true }),
+  })
+  assert.equal(toolConflicts.data.openConflicts, 0)
+  assert.deepEqual(toolConflicts.data.conflicts, [])
+  const mcpStats = await jsonFetch(base, '/mcp', {
+    method: 'POST',
+    headers: readerHeaders,
+    body: JSON.stringify({ jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'memory_stats', arguments: {} } }),
+  })
+  assert.equal(mcpStats.status, 200)
+  assert.equal(mcpStats.data.result.structuredContent.byNamespace.secret, undefined)
 
   const renamed = await jsonFetch(base, '/api/namespaces/project-a', { method: 'PATCH', headers: admin, body: JSON.stringify({ to: 'project-b' }) })
   assert.equal(renamed.status, 200)

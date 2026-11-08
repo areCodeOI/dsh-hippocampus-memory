@@ -100,6 +100,11 @@ Content-Type: application/json
 | `logging/setLevel` | 接受并忽略 |
 | `notifications/cancelled` | 接受并忽略 |
 
+> `tools/call` 的 `memory_stats` 会按 key 的 namespace 白名单过滤（`byNamespace` 与
+> `openConflicts` 不会泄露其他空间）。namespace 管理（列表/新建/重命名/合并/删除）
+> 不在 MCP 工具里，请用 WebUI「记忆空间」、`hippocampus namespace` CLI 或
+> `/api/namespaces`。
+
 工具调用失败时**不抛协议错误**，而是返回：
 
 ```json

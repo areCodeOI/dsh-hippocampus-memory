@@ -227,6 +227,7 @@ window.__ModuleLoader__.load({
       const [namespaces, setNamespaces] = useState(['default'])
       const [namespaceItems, setNamespaceItems] = useState([])
       const [panelAuth, setPanelAuth] = useState(null)
+      const [defaultNamespace, setDefaultNamespace] = useState('')
       const [nsDraft, setNsDraft] = useState('')
       const [nsNotice, setNsNotice] = useState('')
 
@@ -297,6 +298,7 @@ window.__ModuleLoader__.load({
           if (!data) return
           const items = data.namespaces || []
           setNamespaceItems(items)
+          setDefaultNamespace(data.default || '')
           const allowed = authData?.auth?.namespaces ?? ['*']
           const names = items.map((item) => item.name)
           const unique = [...new Set(allowed.includes('*') ? ['*', ...names] : names)]
@@ -637,7 +639,7 @@ window.__ModuleLoader__.load({
                 ? namespaceItems.map((item) => h('div', { className: 'hmr-row', key: item.name, onClick: () => changeNamespace(item.name) }, [
                     h('span', { className: 'hmr-tag' }, item.name),
                     h('span', { className: 'txt' }, `${item.total} 条 · active ${item.active ?? 0} · 冲突 ${item.openConflicts ?? 0}`),
-                    h('span', { className: 'time' }, item.name === namespace ? '当前' : item.name === serverInfo?.defaultNamespace ? '默认' : ''),
+                    h('span', { className: 'time' }, item.name === namespace ? '当前' : item.name === defaultNamespace ? '默认' : ''),
                   ]))
                 : h('div', { className: 'hmr-empty' }, '暂无空间'),
               nsNotice ? h('div', { className: 'hmr-code', style: { marginTop: 8 } }, nsNotice) : null,
