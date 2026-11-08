@@ -1,6 +1,6 @@
 {
   "name": "dsh-hippocampus-memory",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "海马体长期记忆：四层 CLS 记忆 + SQLite/PostgreSQL(pgvector) 存储 + REST/MCP + Vue3 WebUI 星图/树 + DSH 侧边栏管理面板 + 权限/审计/嵌入/任务/监控",
   "type": "module",
   "main": "index.js",
