@@ -13,7 +13,7 @@
           <strong>海马体记忆</strong>
           <span>HIPPOCAMPUS</span>
         </div>
-        <span class="hm-version">v0.2.2</span>
+        <span class="hm-version">v0.2.3</span>
         <button class="hm-sidebar-close" type="button" aria-label="关闭导航" :tabindex="mobileOpen ? 0 : -1" @click="closeSidebar">
           <el-icon><Close /></el-icon>
         </button>
