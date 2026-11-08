@@ -7,49 +7,31 @@
 > 已装好插件后，在浏览器里管理记忆。手机/电脑都可以，不需要懂前端。
 > 只想知道手机 App 怎么用，看 [USE-DSH-GO.md](USE-DSH-GO.md)。
 
-## 0. 先打开（默认启动）
+## 0. 首次设置（Mem0 风格）
 
-插件**默认启动 HTTP/WebUI**（`httpEnabled: true`），首次启动自动生成 token；
-不需要时可设 `httpEnabled: false` 关闭。
+插件默认启动 `127.0.0.1:7337`，但**不再使用 token 登录**。
 
-### 方式 A：手机面板一键打开（推荐）
+### 第一次使用
 
-1. 打开「海马体记忆」面板。
-2. 点底部 **WebUI**。
-3. 插件会：
-   - 首次自动生成一个随机 token，保存到 `$DSH_HOME/hippocampus/webui-token`（权限 600，不进 git）；
-   - 确保 `127.0.0.1:7337` 在运行（默认已启动）；
-   - 把带 `#token=...` 的链接复制到剪贴板。
-4. 粘贴到浏览器打开。WebUI 会读取 URL 片段里的 token，存进当前标签页的
-   `localStorage`（重启/新标签页不用重输），并立刻从地址栏清掉 token。
+1. 打开 `http://127.0.0.1:7337/`（或 dsh-go 面板点 **WebUI**，它只负责打开页面）。
+2. 页面显示「创建管理员」：填邮箱和密码（至少 8 位），点「创建并进入」。
+3. 之后每次打开用邮箱/密码登录；登录会话保存在本机浏览器（30 天），
+   重启引擎/App 不需要重新配置 token。
 
-> 这个链接里的 token 等同于密码，不要转发/截图；需要换 token 时删除
-> `$DSH_HOME/hippocampus/webui-token` 后重启引擎。
+### API key（给 DSH 面板 / 外部程序）
 
-### 方式 B：直接打开 7337
+1. 登录 WebUI →「设置 → 权限」→ 新建 API key。
+2. 完整 key 只显示一次；DSH 侧边栏「记忆」面板的「API key」填一次，
+   本机浏览器会记住，之后不再手填。
+3. MCP / HTTP / 脚本也用这个 `Authorization: Bearer hk_…`。
 
-需要先启用服务：
+### 可选：脚本用 bootstrap token
 
-1. 编辑本目录的 `cordis.patch.yml`，把 `httpEnabled` 改成 `true`。
-2. `httpToken` 可留空（会自动生成并写入上面的 token 文件），也可显式填一串长口令。
-3. 重启一次引擎。
-4. 打开 `http://127.0.0.1:7337/`，输入 token（见 token 文件）登录。
+如果不想创建管理员账号，可以在配置里设置 `httpToken`，或环境变量
+`HIPOCAMPUS_TOKEN`；它是一个 admin Bearer token，适合自动化脚本。
+**WebUI 推荐用邮箱/密码 + API key。**
 
-也可以用环境变量：`HIPOCAMPUS_HTTP_ENABLED=1`，`HIPOCAMPUS_TOKEN` 可选。
-
-> token 为空时只允许本机回环访问；同机其他 App 仍可能读写，共享设备务必设 token。
-
-### DSH 原版（Web / 桌面）怎么开
-
-DSH 原版没有 dsh-go 的「WebUI」按钮，但 Host 插件、自动召回和 WebUI 服务都支持：
-
-1. 把本目录 `cordis.patch.yml` 的 `httpEnabled` 改成 `true`，重启 DSH。
-2. token 见 `$DSH_HOME/hippocampus/webui-token`；打开 7337 输入即可。
-3. DSH 侧边栏「记忆」面板的「打开完整管理台」会在你已填 token 时
-   自动带上 `#token=`，不用再输。
-4. 不想改配置：运行 `node bin/hippocampus-http.mjs --port 7337`（手动服务）。
-5. 也可以直接对 AI 说“打开海马体 WebUI”，它会调用 Host 工具 `memory_webui`
-   启动服务并返回带 token 的登录链接（仅 DSH 原版/桌面端有该工具）。
+> 不需要 WebUI 时把 `httpEnabled` 设为 `false`。
 
 ## 1. 打开管理台
 
@@ -59,8 +41,8 @@ DSH 原版没有 dsh-go 的「WebUI」按钮，但 Host 插件、自动召回和
 http://127.0.0.1:7337/
 ```
 
-- 方式 A 会用带 token 的链接自动登录；直接打开则需要手动输入 token。
-- 打不开：先确认已用面板/配置启动；再检查 7337 是否被别的程序占用。
+- 首次打开显示「创建管理员」；设置后显示邮箱/密码登录页。
+- 打不开：先确认 7337 已启动；再检查端口是否被别的程序占用。
 
 左侧是 7 个页面：**总览、记忆库、记忆星图、记忆树、异步任务、审计日志、设置与权限**。
 

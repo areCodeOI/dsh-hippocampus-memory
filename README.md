@@ -1,6 +1,6 @@
 # 海马体长期记忆 · dsh-hippocampus-memory
 
-> 当前版本：**v0.2.4**
+> 当前版本：**v0.3.0**
 
 给 AI 的**跨会话长期记忆**：记住你的稳定偏好、禁忌、项目配置和踩坑结论，下次新对话还能想起来。数据默认存在你本机的 SQLite 里，不上传云端。
 
@@ -25,7 +25,7 @@
 | **自己写程序（HTTP）** | `node bin/hippocampus-http.mjs --port 7337`，接口见 [API.md](docs/API.md) |
 
 > 上面的路径请换成你项目实际所在目录；不需要懂代码，按 [START-HERE.md](docs/START-HERE.md) 一步步做即可。
-> WebUI/HTTP 默认启动，首次自动生成 token；dsh-go 面板的 **WebUI** 会复制带 token 的登录链接，直接打开 7337 则输入 token（见 [USE-WEB.md](docs/USE-WEB.md)）。不需要时可设 `httpEnabled: false` 关闭。
+> WebUI/HTTP 默认启动。第一次打开 7337 会创建管理员（邮箱 + 密码），之后登录一次即可；程序/DSH 面板用 API key。不需要 WebUI 时可设 `httpEnabled: false` 关闭。
 
 装完在 dsh-go 里应看到：
 
@@ -41,11 +41,11 @@
 | --- | --- | --- |
 | `memory_*` 工具、自动召回 | 支持 | 支持 |
 | 原生状态条 / 面板 / 存进记忆 / 回忆 | 支持 | 无（用侧边栏「记忆」面板） |
-| 记忆面板 **WebUI** 一键启动 | 支持 | 无此按钮；WebUI 默认已启动，直接打开 7337 或让 AI 调用 `memory_webui` |
-| WebUI + token fragment 登录 | 支持 | 支持（侧边栏「打开完整管理台」会带上已填 token；也可让 AI 调用 `memory_webui`） |
+| 记忆面板 **WebUI** 一键启动 | 支持 | 无此按钮；WebUI 默认已启动，直接打开 7337 |
+| WebUI 管理员账号登录 | 支持 | 支持（打开 7337 创建管理员/登录） |
 
-> DSH 原版没有手机面板的 WebUI 按钮；WebUI 默认已启动，token 见
-> `$DSH_HOME/hippocampus/webui-token`，或让 AI 调用 `memory_webui` 获取登录链接。
+> DSH 原版没有手机面板的 WebUI 按钮；WebUI 默认已启动，直接打开 7337 创建管理员/登录。
+> API key 在 WebUI「设置 → 权限」创建，给 DSH 侧边栏面板或外部程序用。
 
 ## 第一次用：说人话就行
 
@@ -63,7 +63,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 | 想做什么 | 去哪里 |
 | --- | --- |
 | 手机上看记忆/存记忆/回忆 | [USE-DSH-GO.md](docs/USE-DSH-GO.md) |
-| 浏览器搜索/编辑/处理冲突/备份 | 手机面板点 **WebUI** 复制登录链接，或直接打开 `http://127.0.0.1:7337/`；教程 [USE-WEB.md](docs/USE-WEB.md) |
+| 浏览器搜索/编辑/处理冲突/备份 | 打开 `http://127.0.0.1:7337/`，首次创建管理员/登录；教程 [USE-WEB.md](docs/USE-WEB.md) |
 | 让 AI 安装/体检/排障 | [AI-AUTOMATION.md](docs/AI-AUTOMATION.md) |
 | 理解记忆模型/衰减/回放 | [MEMORY-MODEL.md](docs/MEMORY-MODEL.md) |
 | 看 8 个工具参数 | [TOOLS.md](docs/TOOLS.md) |
@@ -94,7 +94,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 ## 开发与测试
 
 ```bash
-npm test                         # 85 个测试
+npm test                         # 86 个测试
 node test/smoke-runtime.mjs      # 104 项运行时冒烟
 ```
 

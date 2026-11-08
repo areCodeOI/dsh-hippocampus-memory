@@ -11,13 +11,13 @@
 默认部署是**单机自托管**：
 
 - SQLite 文件在应用私有目录（默认 `<插件>/.data/hippocampus/memory.db`；旧版 `$DSH_HOME/hippocampus/memory.db` 会自动沿用；权限 600）。
-- **HTTP 默认开启**（`httpEnabled: true`），但首次启动自动生成 token，所有请求（含回环）都需要它；只监听 `127.0.0.1`。不需要时设 `httpEnabled: false`。
-- **WebUI token**：首次启动自动生成 32 字节随机 token；DSH 侧边栏面板通过
-  回环 Origin 的 `GET /api/webui/link` 取带 token 的登录链接（远程网页读不到；
-  同机 App 仍可伪造 Origin，token 对本地 App 不是强隔离）。token 保存在
-  `$DSH_HOME/hippocampus/webui-token`（0600，目录 0700）；`httpToken` 可覆盖。
-  面板复制的链接把 token 放在 URL **fragment**（不发给服务器/Referer），
-  WebUI 读取后立即清除地址栏。链接等同于密码，不要转发/截图；轮换时删除 token 文件并重启。
+- **HTTP 默认开启**（`httpEnabled: true`），只监听 `127.0.0.1`；不需要时设 `httpEnabled: false`。
+- **认证（Mem0 风格）**：首次打开 WebUI 创建管理员（邮箱 + 密码，scrypt 哈希）；
+  之后邮箱/密码登录，服务端签发 30 天随机会话 token，WebUI 存本机 localStorage；
+  退出/过期后重新登录。程序、DSH 侧边栏面板用 API key（`hk_…`，只存 SHA-256）。
+- **bootstrap token**：`httpToken` / `HIPOCAMPUS_TOKEN` 仍可作为 admin Bearer，
+  适合脚本；WebUI 不再依赖它。
+- **首次管理员只能在回环创建**；远程部署先在主机本机完成 setup，再开放。
 - 没有云服务、没有外联；只有显式配置嵌入 provider 后才会向该 provider 发请求。
 - 本机回环等于操作者机器；能读数据库文件的本地进程基本可以绕过 API 直接读数据。
 
@@ -112,8 +112,9 @@
 
 - 安全头：CSP（`default-src 'self'`，禁止外联脚本）、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer`、`Permissions-Policy`。
 - UI 不加载第三方字体/脚本；没有 `eval`。
-- WebUI token 存本机浏览器 `localStorage`，重启/新标签页无需重输；不写 cookie，因此没有 cookie CSRF；但 XSS 仍可窃取 token——CSP 和输入文本化是防线。
-- DSH 侧边栏面板的 API token 也持久化在它自己的 origin 下；退出/清空 token 会删除。
+- WebUI 登录会话 token 存本机浏览器 `localStorage`，重启/新标签页无需重输；不写 cookie，因此没有 cookie CSRF；但 XSS 仍可窃取 token——CSP 和输入文本化是防线。
+- DSH 侧边栏面板的 API key 存在它自己的 origin 下；退出/清空会删除。
+- 管理员密码使用 scrypt 加盐哈希；会话只存 SHA-256，30 天过期，可在 WebUI 退出。
 - 所有记忆内容通过 `textContent` 渲染，不使用 `innerHTML` 拼接用户数据。
 - CORS 默认只反射回环 Origin（本机 WebUI/DSH 面板），外部网站无法跨源读取本地记忆；其他来源需显式配置 `HIPOCAMPUS_CORS_ORIGINS`（逗号分隔，`*` 表示放开）。
 - 反向代理请配置 TLS、请求体上限、超时与访问日志；后端仅监听 `127.0.0.1`。

@@ -13,7 +13,7 @@
           <strong>海马体记忆</strong>
           <span>HIPPOCAMPUS</span>
         </div>
-        <span class="hm-version">v0.2.4</span>
+        <span class="hm-version">v0.3.0</span>
         <button class="hm-sidebar-close" type="button" aria-label="关闭导航" :tabindex="mobileOpen ? 0 : -1" @click="closeSidebar">
           <el-icon><Close /></el-icon>
         </button>
@@ -236,12 +236,15 @@
       <div v-if="loginOpen" class="hm-login">
         <form class="hm-login-card" @submit.prevent="login">
           <img :src="favicon" alt="" width="52" height="52" />
-          <h2>进入记忆观测站</h2>
-          <p>输入管理 token 或 API key。未配置 token 时，本机回环访问会自动以管理员身份进入。</p>
-          <el-input v-model="loginToken" type="password" show-password placeholder="hk_… 或 HIPPOCAMPUS_TOKEN" autocomplete="off" />
+          <h2>{{ setupMode ? '创建管理员' : '登录记忆观测站' }}</h2>
+          <p v-if="setupMode">首次使用：创建管理员账号（邮箱 + 密码）。之后用它与 API key 访问。</p>
+          <p v-else>使用管理员邮箱和密码登录。</p>
+          <el-input v-model="loginEmail" placeholder="邮箱" autocomplete="username" />
+          <el-input v-model="loginPassword" type="password" show-password placeholder="密码（至少 8 位）" autocomplete="current-password" />
+          <el-input v-if="setupMode" v-model="loginConfirm" type="password" show-password placeholder="再输入一次密码" autocomplete="new-password" />
           <p v-if="loginError" class="hm-login-error">{{ loginError }}</p>
-          <el-button type="primary" native-type="submit" :loading="loggingIn">连接</el-button>
-          <span class="hm-login-hint">token 保存在本机浏览器 localStorage；退出登录会清除</span>
+          <el-button type="primary" native-type="submit" :loading="loggingIn">{{ setupMode ? '创建并进入' : '登录' }}</el-button>
+          <span class="hm-login-hint">登录会话保存在本机浏览器；API key 在「设置 → 权限」管理</span>
         </form>
       </div>
     </transition>
@@ -298,7 +301,10 @@ const saving = ref(false)
 const secretOpen = ref(false)
 const secretKey = ref('')
 const loginOpen = ref(false)
-const loginToken = ref(session.token)
+const setupMode = ref(false)
+const loginEmail = ref('')
+const loginPassword = ref('')
+const loginConfirm = ref('')
 const loginError = ref('')
 const loggingIn = ref(false)
 const editingId = ref(null)
@@ -359,7 +365,8 @@ async function boot() {
   try {
     session.publicConfig = await (await fetch('/api/public-config')).json()
     session.config = session.publicConfig
-    if (session.publicConfig.authRequired && !session.token) {
+    setupMode.value = Boolean(session.publicConfig.needsSetup)
+    if (setupMode.value || (session.publicConfig.authRequired && !session.token)) {
       booting.value = false
       loginOpen.value = true
       return
@@ -385,7 +392,12 @@ async function checkAuth() {
   } catch (error) {
     booting.value = false
     loginOpen.value = true
-    loginError.value = error.message === '登录已失效' ? 'token 无效或服务未授权' : error.message
+    if (error.message === '登录已失效') {
+      saveToken('')
+      loginError.value = '登录已失效，请重新登录'
+    } else {
+      loginError.value = error.message
+    }
   }
 }
 
@@ -416,22 +428,48 @@ function changeNamespace(value) {
 }
 
 async function login() {
-  if (!loginToken.value.trim()) {
-    loginError.value = '请输入 token'
+  if (!loginEmail.value.trim() || !loginPassword.value) {
+    loginError.value = '请输入邮箱和密码'
+    return
+  }
+  if (setupMode.value && loginPassword.value !== loginConfirm.value) {
+    loginError.value = '两次输入的密码不一致'
     return
   }
   loggingIn.value = true
   loginError.value = ''
-  saveToken(loginToken.value.trim())
-  await checkAuth()
-  loggingIn.value = false
+  try {
+    const endpoint = setupMode.value ? '/api/auth/register' : '/api/auth/login'
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: loginEmail.value.trim(), password: loginPassword.value }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error?.message ?? `HTTP ${response.status}`)
+    saveToken(data.token)
+    setupMode.value = false
+    loginOpen.value = false
+    await checkAuth()
+  } catch (error) {
+    loginError.value = error.message
+  } finally {
+    loggingIn.value = false
+  }
 }
 
 function logout() {
+  const token = session.token
   saveToken('')
   auth.value = null
-  loginToken.value = ''
+  session.auth = null
+  loginEmail.value = ''
+  loginPassword.value = ''
+  loginConfirm.value = ''
   loginOpen.value = true
+  if (token) {
+    fetch('/api/auth/logout', { method: 'POST', headers: { authorization: `Bearer ${token}` } }).catch(() => {})
+  }
 }
 
 async function openMemory(id) {

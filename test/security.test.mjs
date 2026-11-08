@@ -182,17 +182,26 @@ test('security: query token works only for /metrics, not /api', async () => {
   assert.equal(api.status, 401)
 })
 
-test('security: the loopback panel link endpoint is origin-gated', async () => {
-  const { port } = await startServer({ token: 'secret-token' })
-  const panel = await request(port, 'GET', '/api/webui/link', {
-    headers: { origin: 'http://127.0.0.1:3080' },
-  })
-  assert.equal(panel.status, 200)
-  assert.match(panel.json.url, new RegExp(`^http://127\\.0\\.0\\.1:${port}/#token=secret-token$`))
-  const evil = await request(port, 'GET', '/api/webui/link', {
-    headers: { origin: 'https://evil.example' },
+test('security: first-admin setup cannot be triggered cross-site', async () => {
+  const { port } = await startServer()
+  const body = JSON.stringify({ email: 'admin@example.com', password: 'correct horse battery' })
+  const evil = await request(port, 'POST', '/api/auth/register', {
+    headers: { origin: 'https://evil.example', 'content-type': 'application/json' },
+    body,
   })
   assert.equal(evil.status, 403)
-  const bare = await request(port, 'GET', '/api/webui/link')
-  assert.equal(bare.status, 403)
+  const status = await request(port, 'GET', '/api/auth/setup-status')
+  assert.equal(status.status, 200)
+  assert.equal(status.json.needsSetup, true)
+  const ok = await request(port, 'POST', '/api/auth/register', {
+    headers: { 'content-type': 'application/json' },
+    body,
+  })
+  assert.equal(ok.status, 201)
+  assert.match(ok.json.token, /^hs_/)
+  const second = await request(port, 'POST', '/api/auth/register', {
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: 'other@example.com', password: 'another password' }),
+  })
+  assert.equal(second.status, 409)
 })

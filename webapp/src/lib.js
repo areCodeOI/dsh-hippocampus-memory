@@ -22,13 +22,6 @@ function readStoredToken() {
   }
   return saved
 }
-const hashParams = new URLSearchParams(String(location.hash || '').replace(/^#/, ''))
-const hashToken = hashParams.get('token')
-if (hashToken) {
-  localStorage.setItem(TOKEN_KEY, hashToken)
-  sessionStorage.removeItem(TOKEN_KEY)
-  history.replaceState(null, '', `${location.pathname}${location.search}`)
-}
 
 export const session = reactive({
   token: readStoredToken(),

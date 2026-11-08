@@ -125,27 +125,6 @@ window.__ModuleLoader__.load({
       return data
     }
 
-    function isLoopbackBase(value) {
-      try {
-        const url = new URL(value)
-        return ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(url.hostname)
-      } catch {
-        return false
-      }
-    }
-
-    async function fetchPanelToken(base) {
-      const response = await fetch(`${base}/api/webui/link`, { headers: { accept: 'application/json' } })
-      if (!response.ok) return ''
-      const data = await response.json().catch(() => ({}))
-      if (!data.url) return ''
-      try {
-        return new URLSearchParams(new URL(data.url).hash.replace(/^#/, '')).get('token') || ''
-      } catch {
-        return ''
-      }
-    }
-
     function MemoryIcon({ size = 18, active }) {
       return h(
         'svg',
@@ -211,20 +190,7 @@ window.__ModuleLoader__.load({
         setLoading(true)
         setError('')
         try {
-          let activeToken = token || savedToken()
-          // On this machine the panel should use the WebUI token that the
-          // plugin generated, not ask the user to paste it after every start.
-          if (isLoopbackBase(base)) {
-            const autoToken = await fetchPanelToken(base).catch(() => '')
-            if (autoToken) {
-              activeToken = autoToken
-              if (autoToken !== token) {
-                localStorage.setItem('hippocampus.token', autoToken)
-                setToken(autoToken)
-                setTokenDraft(autoToken)
-              }
-            }
-          }
+          const activeToken = token || savedToken()
           if (tab === 'overview') {
             const [mon, list] = await Promise.all([
               request(base, activeToken, '/api/monitor'),
@@ -342,22 +308,7 @@ window.__ModuleLoader__.load({
 
       const latestMemory = selectedDetail?.memory ?? null
       const maxKind = Math.max(1, ...KIND_ORDER.map((kind) => stats.byKind?.[kind] ?? 0))
-      // The full WebUI accepts a fragment token; keep it out of the query and
-      // let the page store it in localStorage and clear the address bar.
-      const fullUrl = token ? `${base}/#token=${encodeURIComponent(token)}` : `${base}/`
-      async function openFull() {
-        try {
-          const response = await fetch(`${base}/api/webui/link`, { headers: { accept: 'application/json' } })
-          const data = await response.json().catch(() => ({}))
-          if (response.ok && data.url) {
-            window.open(data.url, '_blank', 'noopener')
-            return
-          }
-        } catch {
-          // Fall back to the direct URL below.
-        }
-        window.open(fullUrl, '_blank', 'noopener')
-      }
+      const openFull = () => window.open(`${base}/`, '_blank', 'noopener')
 
       return h('div', { className: 'hmr-root' }, [
         h('style', { key: 'style' }, CSS),
@@ -372,7 +323,7 @@ window.__ModuleLoader__.load({
             h('button', { key: 'refresh', className: 'hmr-btn', onClick: () => setRefresh((value) => value + 1) }, '刷新'),
             h('button', { key: 'star', className: 'hmr-btn', onClick: () => window.open(`${base}/#/star`, '_blank', 'noopener') }, '星图'),
             h('button', { key: 'tree', className: 'hmr-btn', onClick: () => window.open(`${base}/#/tree`, '_blank', 'noopener') }, '树'),
-            h('button', { key: 'full', className: 'hmr-btn primary', onClick: () => void openFull() }, '打开完整管理台'),
+            h('button', { key: 'full', className: 'hmr-btn primary', onClick: () => openFull() }, '打开完整管理台'),
           ]),
         ]),
         h('div', { className: 'hmr-tabs', key: 'tabs' }, tabs.map(([id, label]) => h('button', {
@@ -488,11 +439,11 @@ window.__ModuleLoader__.load({
               h('h2', {}, '连接'),
               h('div', { className: 'hmr-form' }, [
                 h('label', { className: 'full' }, [h('span', {}, 'API 地址'), h('input', { value: baseDraft, onChange: (event) => setBaseDraft(event.target.value) })]),
-                h('label', { className: 'full' }, [h('span', {}, 'Bearer token / API key（本机自动读取 WebUI token；远程才需手填）'), h('input', { type: 'password', value: tokenDraft, onChange: (event) => setTokenDraft(event.target.value) })]),
+                h('label', { className: 'full' }, [h('span', {}, 'API key（在 WebUI「设置 → 权限」创建；本机保存后不再手填）'), h('input', { type: 'password', value: tokenDraft, onChange: (event) => setTokenDraft(event.target.value) })]),
               ]),
               h('div', { className: 'hmr-actions' }, [
                 h('button', { key: 'save', className: 'hmr-btn primary', onClick: saveDraftConnection }, '保存并重连'),
-                h('button', { key: 'full', className: 'hmr-btn', onClick: () => void openFull() }, '打开完整管理台'),
+                h('button', { key: 'full', className: 'hmr-btn', onClick: () => openFull() }, '打开完整管理台'),
               ]),
               h('p', { className: 'hmr-code', style: { marginTop: 10 } }, '独立 HTTP 服务默认监听 127.0.0.1:7337；可在设置或启动参数中改端口/监听地址。'),
             ]),

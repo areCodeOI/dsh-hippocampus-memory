@@ -74,12 +74,11 @@ node bin/hippocampus.mjs import backup.json
         replayIntervalHours: 24    # 回放间隔
         retrievalLimit: 5          # 默认召回条数
         promptLanguage: auto       # auto | zh | en
-        # 默认开启；首次启动自动生成 token 到
-        # $DSH_HOME/hippocampus/webui-token（0600）。不需要 WebUI 时改为 false。
+        # 默认开启；首次打开 WebUI 创建管理员（邮箱+密码）。不需要时改为 false。
         httpEnabled: true
         httpHost: 127.0.0.1
         httpPort: 7337
-        httpToken: ''              # 空 = 本机自动管理员
+        httpToken: ''              # 可选 bootstrap admin token；WebUI 用管理员账号
 ```
 
 dsh-go 的插件详情 →「设置」会直接读取这里的 `Config` schema，可改

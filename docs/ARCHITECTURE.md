@@ -77,13 +77,13 @@ npm test   # test/run-tests.mjs 自动适配 Node 22/24
 node test/smoke-runtime.mjs
 ```
 
-当前 85 个测试覆盖：
+当前 86 个测试覆盖：
 
 - store：写入/召回/中文标点、精确与近似查重、严格补充合并、数值冲突与确认解决、无匹配、衰减归档、待删除 7 天冷静期与永久清理、读取恢复、回放巩固幂等、namespace 隔离、导出导入、人格记忆删除保护、重要性推断、归档/待删除记忆重新写入时恢复、固化记忆被取代需显式确认、冲突事实在重复阈值以下也能被识别、自动召回使用计数
 - MCP：initialize、tools/list、tools/call、resources、prompts、错误码、非法 JSON、重启后持久化
 - HTTP：health、REST CRUD、搜索、统计、回放、MCP-over-HTTP、Bearer token、错误响应
 - v2 HTTP：WebUI 静态资源、星图/树、monitor/metrics、缓存命中、API key 角色、namespace 限制、审计、任务、导出、token 保护
-- auth：bootstrap、本地回环、key hash、角色、namespace、吊销、required 模式
+- auth：bootstrap、首次管理员 setup、scrypt 密码、会话、本地回环、key hash、角色、namespace、吊销、required 模式
 - jobs：领取/完成、失败重试、取消、lease 恢复、列表/统计/清理
 - embeddings：FP32/余弦/SimHash、OpenAI+Ollama 多 provider、混合召回、回填、查询缓存、禁用 no-op
 - plugin：8 个工具注册、DSH 会话来源、提示词注入开关、插件卸载时关闭数据库、自动召回 pre-step 注入（长消息截断、不回写访问统计）、promptLanguage auto 语言协商
