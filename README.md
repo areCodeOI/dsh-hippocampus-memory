@@ -79,7 +79,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 ## 开发与测试
 
 ```bash
-npm test                         # 78 个测试
+npm test                         # 79 个测试
 node test/smoke-runtime.mjs      # 104 项运行时冒烟
 ```
 

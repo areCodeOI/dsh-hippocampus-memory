@@ -77,7 +77,7 @@ node --test --test-isolation=none test/*.test.mjs
 node test/smoke-runtime.mjs
 ```
 
-当前 78 个测试覆盖：
+当前 79 个测试覆盖：
 
 - store：写入/召回/中文标点、精确与近似查重、严格补充合并、数值冲突与确认解决、无匹配、衰减归档、待删除 7 天冷静期与永久清理、读取恢复、回放巩固幂等、namespace 隔离、导出导入、人格记忆删除保护、重要性推断、归档/待删除记忆重新写入时恢复、固化记忆被取代需显式确认、冲突事实在重复阈值以下也能被识别、自动召回使用计数
 - MCP：initialize、tools/list、tools/call、resources、prompts、错误码、非法 JSON、重启后持久化
@@ -91,7 +91,7 @@ node test/smoke-runtime.mjs
 - storage：SQLite 路径/目录、PostgreSQL 配置脱敏、SQL 占位符与 `INSERT OR IGNORE` 翻译、change_seq 持久化、跨进程租约、图 provider
 - 回归：GET /mcp 不再打死进程、只读端点 405、CORS 仅回环源、Prometheus TYPE 完整、否定事实冲突、任务重试退避、向量权重 `0` 可关闭混合检索
 - dsh-go：`dshGo` 清单里的每个入口都有对应注册；存进记忆/回忆/面板共用同一个 store
-- security：跨站写 403、非 JSON 415、DNS rebinding Host 421、允许列表与回环场景
+- security：跨站写 403、非 JSON 415、DNS rebinding Host 421、允许列表与回环场景、跨站 GET 无恢复/计数副作用
 
 > Android/Termux 上 `node --test` 默认的进程隔离会因为 `process.execPath` 指向 linker 而失败，所以脚本固定使用 `--test-isolation=none`；MCP 测试内部用 `process.argv0` 启动子进程。
 

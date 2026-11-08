@@ -76,6 +76,8 @@ test('security: DNS rebinding Host is rejected for reads and writes', async () =
   assert.equal(response.status, 421)
   const health = await request(port, 'GET', '/health', { headers: { host: 'rebind.attacker.test' } })
   assert.equal(health.status, 421)
+  const malformed = await request(port, 'GET', '/api/stats', { headers: { host: 'evil:test' } })
+  assert.equal(malformed.status, 421)
   const normal = await request(port, 'GET', '/api/export')
   assert.equal(normal.status, 200)
   assert.match(JSON.stringify(normal.json), /PostgreSQL/)
@@ -94,6 +96,16 @@ test('security: simple text/plain or urlencoded bodies are rejected with 415', a
     body: 'content=form写入',
   })
   assert.equal(form.status, 415)
+  const noType = await request(port, 'POST', '/api/memories', {
+    body: JSON.stringify({ content: '没有 Content-Type 的 JSON' }),
+  })
+  assert.equal(noType.status, 415)
+  const existing = store.list({ limit: 1 }).items[0]
+  const emptyForm = await request(port, 'POST', `/api/memories/${existing.id}/archive`, {
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+  })
+  assert.equal(emptyForm.status, 415)
+  assert.equal(store.getMemory(existing.id).status, 'active')
   assert.equal(store.stats().totals.all, before)
 })
 
@@ -137,4 +149,27 @@ test('security: Fetch Metadata cross-site without Origin is blocked', async () =
     body: JSON.stringify({ content: '无 Origin 的跨站写入' }),
   })
   assert.equal(response.status, 403)
+})
+
+test('security: cross-site GET cannot restore or refresh access counters', async () => {
+  const { port, store } = await startServer()
+  const created = store.add({ content: '待删除的旧记忆，只有用户确认后才能恢复。', kind: 'episodic', importance: 4 })
+  const id = created.memory.id
+  const searchable = store.add({ content: '用于检查访问计数的记忆。', kind: 'episodic', importance: 4 })
+  const sid = searchable.memory.id
+  store.remove(id)
+  assert.equal(store.getMemory(id).status, 'pending_delete')
+  const before = store.getMemory(sid).accessCount
+
+  const restored = await request(port, 'GET', `/api/memories/${id}?restore=true`, {
+    headers: { origin: 'https://evil.example' },
+  })
+  assert.equal(restored.status, 200)
+  assert.equal(store.getMemory(id).status, 'pending_delete')
+
+  const searched = await request(port, 'GET', '/api/memories/search?q=' + encodeURIComponent('访问计数器'), {
+    headers: { origin: 'https://evil.example' },
+  })
+  assert.equal(searched.status, 200)
+  assert.equal(store.getMemory(sid).accessCount, before)
 })

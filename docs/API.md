@@ -269,7 +269,7 @@ curl -s -X PATCH http://127.0.0.1:7337/api/memories/<新条目id> \
 ## 删除 / 归档 / 恢复
 
 ```bash
-# 软删除：7 天冷静期，期间 GET 会自动恢复
+# 软删除：7 天冷静期，期间本机/同源 GET 会自动恢复；跨站 GET 不会
 curl -s -X DELETE http://127.0.0.1:7337/api/memories/mem_xxx
 
 # 立即永久删除（人格记忆还需要 force=true）

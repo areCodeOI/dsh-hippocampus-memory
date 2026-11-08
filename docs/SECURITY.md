@@ -34,6 +34,16 @@
 - **CORS**：只回显回环 Origin 或 `HIPOCAMPUS_CORS_ORIGINS` 允许列表；
   不再默认 `*`。
 
+补充：
+
+- **GET 也不产生跨站副作用**：跨站 GET 不恢复待删除记忆、不刷新访问计数；
+  读取恢复/计数只对本机或允许来源生效。
+- **数据库权限**：数据目录尝试 700、主库 600（FUSE/共享存储可能忽略 chmod），
+  WAL/SHM 由目录权限保护。
+- **超时**：HTTP `requestTimeout=30s`、`headersTimeout=10s`、`keepAliveTimeout=5s`，
+  降低慢连接占用。
+- **缓存**：`/api/*` 与 `/mcp` 响应加 `cache-control: no-store`，避免记忆/密钥落到浏览器缓存。
+
 残余风险：
 
 - 回环且未设置 `HIPOCAMPUS_TOKEN` 时，**同机其他进程**仍可直接读写记忆库/API；
