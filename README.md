@@ -96,7 +96,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 ## 开发与测试
 
 ```bash
-npm test                         # 106 个测试
+npm test                         # 107 个测试
 npm run test:smoke               # 104 项运行时冒烟
 npm run test:link                # 链接安装（无本地 node_modules）回归
 npm run test:pg                  # 真实 PostgreSQL（需 HIPPOCAMPUS_TEST_PG_URL；未设置则跳过）

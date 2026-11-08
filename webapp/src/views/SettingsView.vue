@@ -62,10 +62,10 @@
         </el-table>
       </section>
 
-      <section v-if="isAdmin" class="hm-card">
+      <section v-if="canBackup" class="hm-card">
         <div class="hm-card-head">
           <h2>备份</h2>
-          <el-button v-if="isAdmin" type="primary" size="small" @click="createBackup">立即备份</el-button>
+          <el-button type="primary" size="small" @click="createBackup">立即备份</el-button>
         </div>
         <p class="hm-muted small">危险空间操作会自动备份；恢复只替换记忆/空间数据，执行前会再自动备份当前状态。</p>
         <el-table :data="backups" class="hm-table" row-key="name">
@@ -167,6 +167,10 @@ const resetForm = reactive({ userId: '', password: '' })
 const passwordSaving = ref(false)
 const resetSaving = ref(false)
 const isAdmin = computed(() => props.auth?.role === 'admin')
+const canBackup = computed(() => {
+  const scopes = props.auth?.namespaces
+  return isAdmin.value && (!scopes || (Array.isArray(scopes) && scopes.includes('*')))
+})
 const defaultKeyNamespaces = computed(() => {
   const allowed = props.auth?.namespaces ?? ['*']
   return allowed.includes('*') ? '*' : allowed.join(', ')
@@ -180,7 +184,7 @@ async function load() {
       const data = await api('/api/keys')
       keys.value = data.keys
       users.value = (await api('/api/users')).users
-      backups.value = (await api('/api/backups').catch(() => ({ backups: [] }))).backups
+      backups.value = canBackup.value ? (await api('/api/backups').catch(() => ({ backups: [] }))).backups : []
     }
   } catch (error) {
     ElMessage.error(error.message)
@@ -218,7 +222,7 @@ async function restore(row) {
     await load()
     emit('refresh')
   } catch (error) {
-    if (error !== 'cancel') ElMessage.error(error.message)
+    if (error !== 'cancel' && error !== 'close') ElMessage.error(error.message)
   }
 }
 
@@ -229,7 +233,7 @@ async function removeBackup(row) {
     ElMessage.success('已删除')
     backups.value = (await api('/api/backups')).backups
   } catch (error) {
-    if (error !== 'cancel') ElMessage.error(error.message)
+    if (error !== 'cancel' && error !== 'close') ElMessage.error(error.message)
   }
 }
 

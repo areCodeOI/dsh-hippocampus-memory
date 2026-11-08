@@ -150,6 +150,8 @@ curl -s -X DELETE 'http://127.0.0.1:7337/api/namespaces/project-b?hard=true&conf
 
 危险空间操作（rename/merge/delete）默认先写一份逻辑备份（JSON，含 memories/conflicts/namespace
 元数据），备份失败则中止操作。备份文件权限 600，默认保留最近 20 份（`HIPPOCAMPUS_BACKUP_KEEP`）。
+备份/恢复接口要求 **admin 且 namespace 白名单包含 `*`**；受限 admin key 不能创建/读取/恢复/删除全局备份。
+恢复前若存在 queued/running 任务会返回 409，请先等待或取消任务。
 ```bash
 curl -s -X POST http://127.0.0.1:7337/api/backups -H "Authorization: Bearer $TOKEN" -d '{"label":"manual"}'
 curl -s http://127.0.0.1:7337/api/backups -H "Authorization: Bearer $TOKEN"

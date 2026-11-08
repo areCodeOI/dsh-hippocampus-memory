@@ -89,7 +89,7 @@ test('namespaces: merge migrates memories and dedupes exact active facts', () =>
 })
 
 test('namespaces: soft and hard delete, persona/default protection', () => {
-  const { store } = makeStore()
+  const { store, auth } = makeStore()
   store.add({ content: '普通项目记忆。', kind: 'semantic', namespace: 'temp', confirmed: true })
   store.add({ content: '用户对花生过敏。', kind: 'persona', namespace: 'temp', confirmed: true })
   assert.throws(() => deleteNamespace(store, 'default'), /configured default/)
@@ -101,10 +101,13 @@ test('namespaces: soft and hard delete, persona/default protection', () => {
   assert.ok(soft.purgeAfter > Date.now())
 
   store.add({ content: '另一条普通记忆。', kind: 'semantic', namespace: 'temp2', confirmed: true })
+  const scopedKey = auth.createKey({ name: 'temp2-key', role: 'reader', namespaces: ['temp2'] })
   const hard = deleteNamespace(store, 'temp2', { hard: true, confirm: true })
   assert.equal(hard.deleted, 1)
+  assert.equal(hard.apiKeys, 1)
   assert.equal(store.list({ namespace: 'temp2' }).total, 0)
   assert.equal(listNamespaces(store).namespaces.some((entry) => entry.name === 'temp2'), false)
+  assert.deepEqual(auth.listKeys().find((key) => key.id === scopedKey.id).namespaces, [])
 })
 
 test('namespaces HTTP: metadata, backup API, async queue and memory_namespace tool', async () => {
@@ -134,7 +137,7 @@ test('namespaces HTTP: metadata, backup API, async queue and memory_namespace to
     headers: admin,
     body: JSON.stringify({ content: 'read only write', namespace: 'meta-ns' }),
   })
-  assert.equal(blocked.status, 400)
+  assert.equal(blocked.status, 403)
 
   const unlocked = await jsonFetch(base, '/api/namespaces/meta-ns', {
     method: 'PATCH',
@@ -219,6 +222,16 @@ test('namespaces HTTP: list/create/rename/merge/delete with roles and stats', as
   const restrictedList = await jsonFetch(base, '/api/namespaces', { headers: restrictedHeaders })
   assert.equal(restrictedList.data.default, null)
   assert.deepEqual(restrictedList.data.namespaces.map((entry) => entry.name), ['project-a'])
+  // Global backup/restore is not available to a namespace-restricted admin.
+  assert.equal((await jsonFetch(base, '/api/backups', { headers: restrictedHeaders })).status, 403)
+  assert.equal(
+    (await jsonFetch(base, '/api/backups/anything/restore', {
+      method: 'POST',
+      headers: restrictedHeaders,
+      body: '{}',
+    })).status,
+    403,
+  )
 
   // Summary endpoints must not reveal the unreadable default namespace name.
   const restrictedStats = await jsonFetch(base, '/api/stats', { headers: restrictedHeaders })

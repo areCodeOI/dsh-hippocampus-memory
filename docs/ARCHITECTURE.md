@@ -79,7 +79,7 @@ npm test   # test/run-tests.mjs 自动适配 Node 22/24
 node test/smoke-runtime.mjs
 ```
 
-当前 106 个测试覆盖：
+当前 107 个测试覆盖：
 
 - store：写入/召回/中文标点、精确与近似查重、严格补充合并、数值冲突与确认解决、无匹配、衰减归档、待删除 7 天冷静期与永久清理、读取恢复、回放巩固幂等、namespace 隔离、导出导入、人格记忆删除保护、重要性推断、归档/待删除记忆重新写入时恢复、固化记忆被取代需显式确认、冲突事实在重复阈值以下也能被识别、自动召回使用计数
 - MCP：initialize、tools/list、tools/call、resources、prompts、错误码、非法 JSON、重启后持久化
@@ -89,7 +89,7 @@ node test/smoke-runtime.mjs
 - jobs：领取/完成、失败重试、取消、lease 恢复、列表/统计/清理
 - embeddings：FP32/余弦/SimHash、OpenAI+Ollama 多 provider、混合召回、回填、查询缓存、禁用 no-op
 - plugin：10 个工具注册（9 个 memory_* + memory_webui）、DSH 会话来源、提示词注入开关、插件卸载时关闭数据库、自动召回 pre-step 注入（长消息截断、不回写访问统计、namespace autoRecall=false 跳过）、promptLanguage auto 语言协商
-- namespace v0.4：schema v4 迁移、空间元数据/只读/保留期、备份/恢复、异步 job、memory_namespace 只读工具、默认空间/跨空间统计隔离
+- namespace v0.4：schema v4 迁移、空间元数据/只读/保留期、备份/恢复、异步 job、memory_namespace 只读工具、默认空间/跨空间统计隔离、备份路径/快照校验/活跃任务保护、删除后回收 API key 空间白名单
 - auto-recall：用户消息提取、斜杠命令跳过、上下文截断、来源标记、pre-step 注入
 - storage：SQLite 路径/目录、PostgreSQL 配置脱敏、SQL 占位符与 `INSERT OR IGNORE` 翻译、change_seq 持久化、跨进程租约、图 provider
 - 回归：GET /mcp 不再打死进程、只读端点 405、CORS 仅回环源、Prometheus TYPE 完整、否定事实冲突、任务重试退避、向量权重 `0` 可关闭混合检索

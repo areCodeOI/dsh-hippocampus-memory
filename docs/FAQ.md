@@ -40,7 +40,8 @@ A：WebUI 左侧「记忆空间」页；或 CLI `node bin/hippocampus.mjs namesp
 **Q：危险操作会先备份吗？怎么恢复？**
 A：rename/merge/delete 默认先写逻辑备份（JSON，含记忆/冲突/空间元数据）；备份失败会中止操作。
 WebUI「设置 → 备份」或 CLI `backup list|create|restore|delete`；恢复默认 dry-run，确认后执行，
-执行前会再自动备份当前状态。恢复只替换记忆数据，用户/API key/审计保留。
+执行前会再自动备份当前状态。恢复只替换记忆数据，用户/API key/审计保留。备份接口只对带 `*`
+白名单的 admin 开放；恢复时若有排队/运行中的任务会返回 409，请先等待或取消任务。
 
 **Q：只读/保留期/自动召回开关在哪？**
 A：WebUI「记忆空间 → 设置」，或 `PATCH /api/namespaces/{name}` 传

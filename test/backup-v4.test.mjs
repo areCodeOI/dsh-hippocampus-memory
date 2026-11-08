@@ -97,6 +97,28 @@ test('backup/restore: logical snapshot includes memories and namespace metadata'
   assert.ok(restored.preRestoreBackup.name)
 })
 
+test('backup restore refuses malformed snapshots and active jobs', async () => {
+  const { store, dir } = makeStore()
+  const backupDir = path.join(dir, 'backups')
+  store.add({ content: 'restore safety memory', kind: 'semantic', confirmed: true })
+  const backup = createBackup(store, { backupDir, label: 'safety' })
+
+  const malformed = path.join(backupDir, 'memory-malformed.json')
+  fs.writeFileSync(malformed, JSON.stringify({ format: 'hippocampus-memory', version: 4, conflicts: [] }))
+  assert.throws(() => restoreBackup({ store, backupDir, name: 'memory-malformed.json', dryRun: false }), /no memories array/)
+  assert.equal(store.stats().totals.all, 1)
+
+  const runtime = createRuntime({ store, startWorker: false })
+  const job = runtime.jobs.enqueue('replay', { namespace: 'default' }, { createdBy: 'test' })
+  assert.throws(
+    () => restoreBackup({ store, backupDir, name: backup.name, dryRun: false }),
+    /queued\/running jobs/,
+  )
+  runtime.jobs.cancel(job.id)
+  const restored = restoreBackup({ store, backupDir, name: backup.name, dryRun: false })
+  assert.equal(restored.restored.imported, 1)
+})
+
 test('namespace jobs: merge runs through the job queue and reports progress', async () => {
   const { store } = makeStore()
   store.add({ content: 'job source memory', kind: 'semantic', namespace: 'source', confirmed: true })
