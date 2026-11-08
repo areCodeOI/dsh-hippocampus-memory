@@ -71,7 +71,7 @@ DSH agent / MCP client / HTTP client / CLI
 ```bash
 npm test
 # 等价于：
-node --test --test-isolation=none test/all.test.mjs
+npm test   # test/run-tests.mjs 自动适配 Node 22/24
 
 # 可选：起真实 HTTP 服务跑多维度运行时冒烟（REST/MCP/鉴权/CORS/性能/崩溃回归）
 node test/smoke-runtime.mjs

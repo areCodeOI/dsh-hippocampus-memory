@@ -37,7 +37,7 @@
     "dsh-go/"
   ],
   "scripts": {
-    "test": "node --test --test-isolation=none test/all.test.mjs",
+    "test": "node test/run-tests.mjs",
     "start:mcp": "node bin/hippocampus-mcp.mjs",
     "start:http": "node bin/hippocampus-http.mjs"
   },
