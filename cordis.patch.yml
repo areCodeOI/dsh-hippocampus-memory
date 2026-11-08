@@ -54,9 +54,10 @@
         autoRecallMaxChars: 1200
         autoRecallMinScore: 0.18
         autoRecallNamespace: ''
-        # 随 DSH 进程一起启动 WebUI / REST / MCP-over-HTTP 服务。
+        # 默认关闭 HTTP/WebUI，减少本地攻击面（dsh-go 原生界面不依赖它）。
+        # 需要 WebUI 时改为 true，并设置 httpToken；或设 HIPOCAMPUS_HTTP_ENABLED=1。
         # 若 7337 已被独立服务占用，插件会记录警告并继续使用已有服务。
-        httpEnabled: true
+        httpEnabled: false
         httpHost: 127.0.0.1
         httpPort: 7337
         httpToken: ''

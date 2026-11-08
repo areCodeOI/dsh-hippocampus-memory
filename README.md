@@ -23,6 +23,7 @@
 | **自己写程序（HTTP）** | `node bin/hippocampus-http.mjs --port 7337`，接口见 [API.md](docs/API.md) |
 
 > 上面的路径请换成你项目实际所在目录；不需要懂代码，按 [START-HERE.md](docs/START-HERE.md) 一步步做即可。
+> WebUI/HTTP 默认关闭（减少攻击面）；dsh-go 原生面板不需要它，要用浏览器管理台按 [USE-WEB.md](docs/USE-WEB.md) 开启并设 token。
 
 装完在 dsh-go 里应看到：
 
@@ -48,7 +49,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 | 想做什么 | 去哪里 |
 | --- | --- |
 | 手机上看记忆/存记忆/回忆 | [USE-DSH-GO.md](docs/USE-DSH-GO.md) |
-| 浏览器搜索/编辑/处理冲突/备份 | 打开 `http://127.0.0.1:7337/`，教程 [USE-WEB.md](docs/USE-WEB.md) |
+| 浏览器搜索/编辑/处理冲突/备份 | **默认关闭**；按 [USE-WEB.md](docs/USE-WEB.md) 开启后再打开 `http://127.0.0.1:7337/` |
 | 让 AI 安装/体检/排障 | [AI-AUTOMATION.md](docs/AI-AUTOMATION.md) |
 | 理解记忆模型/衰减/回放 | [MEMORY-MODEL.md](docs/MEMORY-MODEL.md) |
 | 看 8 个工具参数 | [TOOLS.md](docs/TOOLS.md) |
@@ -79,7 +80,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 ## 开发与测试
 
 ```bash
-npm test                         # 79 个测试
+npm test                         # 82 个测试
 node test/smoke-runtime.mjs      # 104 项运行时冒烟
 ```
 

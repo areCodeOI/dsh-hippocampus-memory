@@ -11,7 +11,7 @@
 默认部署是**单机自托管**：
 
 - SQLite 文件在应用私有目录（默认 `<插件>/.data/hippocampus/memory.db`；旧版 `$DSH_HOME/hippocampus/memory.db` 会自动沿用；权限 600）。
-- HTTP 服务默认只监听 `127.0.0.1`。
+- **HTTP 默认关闭**（`httpEnabled: false`）；显式开启后只监听 `127.0.0.1`，dsh-go 原生界面不依赖它。
 - 没有云服务、没有外联；只有显式配置嵌入 provider 后才会向该 provider 发请求。
 - 本机回环等于操作者机器；能读数据库文件的本地进程基本可以绕过 API 直接读数据。
 

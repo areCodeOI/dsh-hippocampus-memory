@@ -4,10 +4,11 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, test } from 'node:test'
 import { apply, resolveLanguage } from '../index.js'
-import { TOOL_NAMES } from '../lib/tools.js'
+import { TOOL_DEFS, TOOL_NAMES } from '../lib/tools.js'
 import { DatabaseSync } from 'node:sqlite'
 
 const dirs = []
+const disposers = []
 
 function fakeContext() {
   const tools = new Map()
@@ -46,6 +47,16 @@ function fakeContext() {
       })
     },
   }
+  disposers.push(() => {
+    for (const effect of [...effects].reverse()) {
+      try {
+        if (typeof effect === 'function') effect()
+        else if (typeof effect?.dispose === 'function') effect.dispose()
+      } catch {
+        // cleanup is best effort
+      }
+    }
+  })
   return { ctx, tools, sections, effects, handlers }
 }
 
@@ -56,6 +67,15 @@ function tempDb() {
 }
 
 afterEach(() => {
+  // Windows returns EPERM when rm -rf hits an open SQLite handle: dispose the
+  // plugin/store first, then delete the temp directory.
+  for (const dispose of disposers.splice(0).reverse()) {
+    try {
+      dispose()
+    } catch {
+      // best effort
+    }
+  }
   for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
 })
 
@@ -148,6 +168,7 @@ test('plugin: tools are disposed and the database is closed with the plugin', as
 test('plugin: promptLanguage auto resolves en for English locales and defaults to zh', () => {
   assert.equal(resolveLanguage({ promptLanguage: 'auto' }, { LANG: 'zh_CN.UTF-8' }), 'zh')
   assert.equal(resolveLanguage({ promptLanguage: 'auto' }, { DSH_LANG: 'en-US', LANG: 'en_US.UTF-8' }), 'en')
+  assert.equal(resolveLanguage({ promptLanguage: 'auto' }, { LANG: 'en_US.UTF-8' }), 'en')
   assert.equal(resolveLanguage({ promptLanguage: 'auto' }, { LANG: 'C.UTF-8' }), 'zh')
   assert.equal(resolveLanguage({ promptLanguage: 'en' }, { LANG: 'zh_CN.UTF-8' }), 'en')
   assert.equal(resolveLanguage({ promptLanguage: 'zh' }, { LANG: 'en_US.UTF-8' }), 'zh')
@@ -186,4 +207,14 @@ test('plugin: auto-recall does not refresh access stats and survives long messag
   const after = readAccess()
   assert.equal(after.access_count, 0)
   assert.equal(after.last_access_at, before.last_access_at)
+})
+
+test('plugin: tool schemas avoid minimum/maximum for provider compatibility', () => {
+  const walk = (node) => {
+    if (!node || typeof node !== 'object') return
+    assert.equal('minimum' in node, false)
+    assert.equal('maximum' in node, false)
+    for (const value of Object.values(node)) walk(value)
+  }
+  for (const definition of Object.values(TOOL_DEFS)) walk(definition.parameters)
 })

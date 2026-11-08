@@ -173,3 +173,11 @@ test('security: cross-site GET cannot restore or refresh access counters', async
   assert.equal(searched.status, 200)
   assert.equal(store.getMemory(sid).accessCount, before)
 })
+
+test('security: query token works only for /metrics, not /api', async () => {
+  const { port } = await startServer({ token: 'secret-token' })
+  const metrics = await request(port, 'GET', '/metrics?token=secret-token')
+  assert.equal(metrics.status, 200)
+  const api = await request(port, 'GET', '/api/stats?token=secret-token')
+  assert.equal(api.status, 401)
+})

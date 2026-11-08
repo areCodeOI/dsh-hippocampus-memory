@@ -26,7 +26,7 @@ export function resolveLanguage(config, env = process.env) {
   if (language === 'zh' || language === 'en') return language
   const value = `${env?.DSH_LANG ?? ''} ${env?.LANG ?? ''} ${env?.LC_ALL ?? ''}`
   if (/zh|cn|hans/i.test(value)) return 'zh'
-  if (/\ben\b|english/i.test(value)) return 'en'
+  if (/(?:^|[^a-z])en(?![a-z])|english/i.test(value)) return 'en'
   // Unknown/empty locale keeps the product default (Simplified Chinese).
   return 'zh'
 }
@@ -166,7 +166,8 @@ export function apply(ctx, config = {}) {
     })
   }
 
-  if (config.httpEnabled) {
+  const httpEnabled = config.httpEnabled === true || process.env.HIPPOCAMPUS_HTTP_ENABLED === '1'
+  if (httpEnabled) {
     const httpHost = String(config.httpHost ?? '127.0.0.1')
     const configuredPort = Number(config.httpPort ?? 7337)
     const httpPort = Number.isFinite(configuredPort) ? configuredPort : 7337

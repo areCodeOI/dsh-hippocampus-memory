@@ -5,6 +5,7 @@
 > **前置**：会 HTTP/JSON；最好读过 TOOLS
 
 由 `bin/hippocampus-http.mjs` 提供，默认 `http://127.0.0.1:7337`。
+DSH 插件默认不随引擎启动该服务（`httpEnabled: false`）；可单独运行本文件，或按 [USE-WEB.md](USE-WEB.md) 开启。
 
 ```bash
 node bin/hippocampus-http.mjs --port 7337

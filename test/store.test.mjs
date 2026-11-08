@@ -372,3 +372,28 @@ test('stats: records automatic recall usage counters', () => {
   assert.equal(store.stats().autoRecall.hits, 3)
   store.close()
 })
+
+test('conflicts: episodic dates/sequence numbers are separate events, not numeric conflicts', () => {
+  const { store } = makeStore()
+  const first = store.add({
+    content: '2026-11-01 部署时 7337 端口被占用，临时改用 7451。',
+    kind: 'episodic',
+    importance: 5,
+  })
+  const second = store.add({
+    content: '2026-11-02 部署时 7337 端口被占用，临时改用 7451。',
+    kind: 'episodic',
+    importance: 5,
+  })
+  assert.notEqual(first.action, 'conflict')
+  assert.notEqual(second.action, 'conflict')
+  assert.equal(store.stats().openConflicts, 0)
+  assert.equal(store.stats().totals.all, 2, 'different days are different events')
+
+  const a = store.add({ content: 'Kestrel 服务器 IP 是 10.0.0.1。', kind: 'semantic', importance: 7 })
+  const b = store.add({ content: 'Kestrel 服务器 IP 是 10.0.0.2。', kind: 'semantic', importance: 7 })
+  assert.notEqual(a.action, 'conflict')
+  assert.equal(b.action, 'conflict', 'semantic IP change is still a conflict')
+  assert.equal(store.stats().openConflicts, 1)
+  store.close()
+})

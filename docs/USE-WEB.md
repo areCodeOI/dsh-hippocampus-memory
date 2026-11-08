@@ -7,6 +7,18 @@
 > 已装好插件后，在浏览器里管理记忆。手机/电脑都可以，不需要懂前端。
 > 只想知道手机 App 怎么用，看 [USE-DSH-GO.md](USE-DSH-GO.md)。
 
+## 0. 先启用（默认关闭）
+
+为了减少攻击面，插件**默认不启动 HTTP/WebUI**（`httpEnabled: false`）。
+dsh-go 手机原生面板不需要它；只有想用浏览器管理台时才开启：
+
+1. 编辑本目录的 `cordis.patch.yml`，把 `httpEnabled` 改成 `true`，
+   `httpToken` 填一串随机长口令（强烈建议，不要留空）。
+2. 重启一次引擎。
+3. 若用环境变量启动，也可设 `HIPOCAMPUS_HTTP_ENABLED=1` 和 `HIPOCAMPUS_TOKEN`。
+
+> 留空 token 时只允许本机回环访问；同机其他 App 仍可能读写，共享设备务必设 token。
+
 ## 1. 打开管理台
 
 在浏览器地址栏输入：
@@ -15,7 +27,7 @@
 http://127.0.0.1:7337/
 ```
 
-- 如果浏览器和 DSH 在同一台设备上，通常直接就能打开。
+- 如果浏览器和 DSH 在同一台设备上，通常直接就能打开（前提是已按第 0 节启用）。
 - 如果提示要 token：说明设置了 `HIPOCAMPUS_TOKEN` 或 `HIPOCAMPUS_AUTH=required`，
   把 token 填进去即可（找部署的人要，不要发到群里）。
 - 打不开：先在 App「引擎」页重启引擎；或确认 7337 没被别的程序占用。
