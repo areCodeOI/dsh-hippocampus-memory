@@ -13,15 +13,25 @@ export const STATUS_LABEL = {
 // A panel-launched link carries the token in the fragment. Fragments are not
 // sent to the server or included in the Referer; store it for this tab and
 // clear it from the address bar immediately.
+const TOKEN_KEY = 'hippocampus.token'
+function readStoredToken() {
+  const saved = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || ''
+  if (saved) {
+    localStorage.setItem(TOKEN_KEY, saved)
+    sessionStorage.removeItem(TOKEN_KEY)
+  }
+  return saved
+}
 const hashParams = new URLSearchParams(String(location.hash || '').replace(/^#/, ''))
 const hashToken = hashParams.get('token')
 if (hashToken) {
-  sessionStorage.setItem('hippocampus.token', hashToken)
+  localStorage.setItem(TOKEN_KEY, hashToken)
+  sessionStorage.removeItem(TOKEN_KEY)
   history.replaceState(null, '', `${location.pathname}${location.search}`)
 }
 
 export const session = reactive({
-  token: sessionStorage.getItem('hippocampus.token') ?? '',
+  token: readStoredToken(),
   auth: null,
   config: null,
   publicConfig: null,
@@ -60,8 +70,9 @@ export async function api(path, { method = 'GET', body, headers = {}, silent = f
 
 export function saveToken(token) {
   session.token = token
-  if (token) sessionStorage.setItem('hippocampus.token', token)
-  else sessionStorage.removeItem('hippocampus.token')
+  if (token) localStorage.setItem(TOKEN_KEY, token)
+  else localStorage.removeItem(TOKEN_KEY)
+  sessionStorage.removeItem(TOKEN_KEY)
 }
 
 export function saveTheme(theme) {

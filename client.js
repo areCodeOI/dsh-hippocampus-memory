@@ -74,18 +74,13 @@ window.__ModuleLoader__.load({
       return `${location.protocol === 'https:' ? 'https' : 'http'}://${host}:7337`
     }
     function savedToken() {
-      // docs/UI.md promises sessionStorage for the bearer token; migrate and
-      // clear any legacy localStorage copy so credentials do not persist.
-      const legacy = localStorage.getItem('hippocampus.token')
-      if (legacy) {
-        try {
-          sessionStorage.setItem('hippocampus.token', legacy)
-          localStorage.removeItem('hippocampus.token')
-        } catch {
-          // storage may be unavailable (private mode); ignore
-        }
-      }
-      return sessionStorage.getItem('hippocampus.token') || ''
+      // Persist the panel token so a DSH/App restart does not ask again. The
+      // DSH page and the WebUI are different origins, so this storage does not
+      // collide with the WebUI token.
+      const legacy = sessionStorage.getItem('hippocampus.token')
+      if (legacy && !localStorage.getItem('hippocampus.token')) localStorage.setItem('hippocampus.token', legacy)
+      sessionStorage.removeItem('hippocampus.token')
+      return localStorage.getItem('hippocampus.token') || ''
     }
     function ago(ms) {
       if (!ms) return '—'
@@ -128,6 +123,27 @@ window.__ModuleLoader__.load({
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error?.message || `HTTP ${response.status}`)
       return data
+    }
+
+    function isLoopbackBase(value) {
+      try {
+        const url = new URL(value)
+        return ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(url.hostname)
+      } catch {
+        return false
+      }
+    }
+
+    async function fetchPanelToken(base) {
+      const response = await fetch(`${base}/api/webui/link`, { headers: { accept: 'application/json' } })
+      if (!response.ok) return ''
+      const data = await response.json().catch(() => ({}))
+      if (!data.url) return ''
+      try {
+        return new URLSearchParams(new URL(data.url).hash.replace(/^#/, '')).get('token') || ''
+      } catch {
+        return ''
+      }
     }
 
     function MemoryIcon({ size = 18, active }) {
@@ -195,10 +211,24 @@ window.__ModuleLoader__.load({
         setLoading(true)
         setError('')
         try {
+          let activeToken = token || savedToken()
+          // On this machine the panel should use the WebUI token that the
+          // plugin generated, not ask the user to paste it after every start.
+          if (isLoopbackBase(base)) {
+            const autoToken = await fetchPanelToken(base).catch(() => '')
+            if (autoToken) {
+              activeToken = autoToken
+              if (autoToken !== token) {
+                localStorage.setItem('hippocampus.token', autoToken)
+                setToken(autoToken)
+                setTokenDraft(autoToken)
+              }
+            }
+          }
           if (tab === 'overview') {
             const [mon, list] = await Promise.all([
-              request(base, token, '/api/monitor'),
-              request(base, token, '/api/memories?limit=8'),
+              request(base, activeToken, '/api/monitor'),
+              request(base, activeToken, '/api/memories?limit=8'),
             ])
             setMonitor(mon)
             setStats(mon.memory || {})
@@ -207,13 +237,13 @@ window.__ModuleLoader__.load({
             const path = query.trim()
               ? `/api/memories/search?q=${encodeURIComponent(query.trim())}&limit=50`
               : '/api/memories?limit=50'
-            const data = await request(base, token, path)
+            const data = await request(base, activeToken, path)
             setMemories(data.memories || data.items || [])
           } else if (tab === 'jobs') {
-            const data = await request(base, token, '/api/jobs?limit=30')
+            const data = await request(base, activeToken, '/api/jobs?limit=30')
             setJobs(data.items || [])
           } else if (tab === 'settings') {
-            const data = await request(base, token, '/api/config').catch(() => request(base, token, '/api/public-config'))
+            const data = await request(base, activeToken, '/api/config').catch(() => request(base, activeToken, '/api/public-config'))
             setConfig(data)
           }
         } catch (err) {
@@ -244,8 +274,8 @@ window.__ModuleLoader__.load({
       const saveDraftConnection = () => {
         localStorage.setItem('hippocampus.apiBase', baseDraft.replace(/\/+$/, ''))
         try {
-          sessionStorage.setItem('hippocampus.token', tokenDraft)
-          localStorage.removeItem('hippocampus.token')
+          localStorage.setItem('hippocampus.token', tokenDraft)
+          sessionStorage.removeItem('hippocampus.token')
         } catch {
           // storage may be unavailable (private mode); ignore
         }
@@ -313,7 +343,7 @@ window.__ModuleLoader__.load({
       const latestMemory = selectedDetail?.memory ?? null
       const maxKind = Math.max(1, ...KIND_ORDER.map((kind) => stats.byKind?.[kind] ?? 0))
       // The full WebUI accepts a fragment token; keep it out of the query and
-      // let the page store it in sessionStorage and clear the address bar.
+      // let the page store it in localStorage and clear the address bar.
       const fullUrl = token ? `${base}/#token=${encodeURIComponent(token)}` : `${base}/`
       async function openFull() {
         try {
@@ -458,7 +488,7 @@ window.__ModuleLoader__.load({
               h('h2', {}, '连接'),
               h('div', { className: 'hmr-form' }, [
                 h('label', { className: 'full' }, [h('span', {}, 'API 地址'), h('input', { value: baseDraft, onChange: (event) => setBaseDraft(event.target.value) })]),
-                h('label', { className: 'full' }, [h('span', {}, 'Bearer token / API key（可留空，本机回环自动 admin）'), h('input', { type: 'password', value: tokenDraft, onChange: (event) => setTokenDraft(event.target.value) })]),
+                h('label', { className: 'full' }, [h('span', {}, 'Bearer token / API key（本机自动读取 WebUI token；远程才需手填）'), h('input', { type: 'password', value: tokenDraft, onChange: (event) => setTokenDraft(event.target.value) })]),
               ]),
               h('div', { className: 'hmr-actions' }, [
                 h('button', { key: 'save', className: 'hmr-btn primary', onClick: saveDraftConnection }, '保存并重连'),

@@ -43,7 +43,7 @@ node bin/hippocampus-http.mjs --host 127.0.0.1 --port 7337
 
 - 没有 `HIPPOCAMPUS_TOKEN` 且没有 API key 时，**回环访问**自动以本地 admin 进入。
 - 设置 `HIPPOCAMPUS_TOKEN` 或 `HIPPOCAMPUS_AUTH=required` 后，进入 UI 需要输入 token / API key。
-- token 只保存在当前标签页的 `sessionStorage`，关闭标签页即清除；不写入 cookie。
+- token 保存在本机浏览器 `localStorage`，重启/新标签页无需重输；点「退出」清除；不写入 cookie。
 - 右上角显示当前角色与 actor；「退出」清除 token。
 - 创建 API key 后，完整 key 只显示一次；服务端只存 SHA-256 hash。
 

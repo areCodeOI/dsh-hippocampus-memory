@@ -174,7 +174,8 @@ async function revoke(row) {
 
 async function exportSnapshot() {
   try {
-    const headers = sessionStorage.getItem('hippocampus.token') ? { authorization: `Bearer ${sessionStorage.getItem('hippocampus.token')}` } : {}
+    const storedToken = localStorage.getItem('hippocampus.token') || sessionStorage.getItem('hippocampus.token')
+    const headers = storedToken ? { authorization: `Bearer ${storedToken}` } : {}
     const response = await fetch(`/api/export?namespace=${encodeURIComponent(localStorage.getItem('hippocampus.namespace') || 'default')}`, { headers })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const blob = await response.blob()

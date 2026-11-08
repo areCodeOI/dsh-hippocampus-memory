@@ -112,7 +112,8 @@
 
 - 安全头：CSP（`default-src 'self'`，禁止外联脚本）、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer`、`Permissions-Policy`。
 - UI 不加载第三方字体/脚本；没有 `eval`。
-- token 存 sessionStorage，不写 cookie，因此没有 cookie CSRF；但 XSS 仍可窃取 token——CSP 和输入文本化是防线。
+- WebUI token 存本机浏览器 `localStorage`，重启/新标签页无需重输；不写 cookie，因此没有 cookie CSRF；但 XSS 仍可窃取 token——CSP 和输入文本化是防线。
+- DSH 侧边栏面板的 API token 也持久化在它自己的 origin 下；退出/清空 token 会删除。
 - 所有记忆内容通过 `textContent` 渲染，不使用 `innerHTML` 拼接用户数据。
 - CORS 默认只反射回环 Origin（本机 WebUI/DSH 面板），外部网站无法跨源读取本地记忆；其他来源需显式配置 `HIPOCAMPUS_CORS_ORIGINS`（逗号分隔，`*` 表示放开）。
 - 反向代理请配置 TLS、请求体上限、超时与访问日志；后端仅监听 `127.0.0.1`。

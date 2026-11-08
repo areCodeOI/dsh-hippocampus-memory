@@ -21,7 +21,7 @@
    - 确保 `127.0.0.1:7337` 在运行（默认已启动）；
    - 把带 `#token=...` 的链接复制到剪贴板。
 4. 粘贴到浏览器打开。WebUI 会读取 URL 片段里的 token，存进当前标签页的
-   `sessionStorage`，并立刻从地址栏清掉 token。
+   `localStorage`（重启/新标签页不用重输），并立刻从地址栏清掉 token。
 
 > 这个链接里的 token 等同于密码，不要转发/截图；需要换 token 时删除
 > `$DSH_HOME/hippocampus/webui-token` 后重启引擎。

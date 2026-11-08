@@ -13,7 +13,7 @@
           <strong>海马体记忆</strong>
           <span>HIPPOCAMPUS</span>
         </div>
-        <span class="hm-version">v0.2.3</span>
+        <span class="hm-version">v0.2.4</span>
         <button class="hm-sidebar-close" type="button" aria-label="关闭导航" :tabindex="mobileOpen ? 0 : -1" @click="closeSidebar">
           <el-icon><Close /></el-icon>
         </button>
@@ -241,7 +241,7 @@
           <el-input v-model="loginToken" type="password" show-password placeholder="hk_… 或 HIPPOCAMPUS_TOKEN" autocomplete="off" />
           <p v-if="loginError" class="hm-login-error">{{ loginError }}</p>
           <el-button type="primary" native-type="submit" :loading="loggingIn">连接</el-button>
-          <span class="hm-login-hint">token 只保存在当前标签页的 sessionStorage</span>
+          <span class="hm-login-hint">token 保存在本机浏览器 localStorage；退出登录会清除</span>
         </form>
       </div>
     </transition>
