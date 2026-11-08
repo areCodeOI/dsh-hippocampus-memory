@@ -422,9 +422,11 @@ async function checkAuth() {
 
 async function loadNamespaces() {
   let available = []
+  let authoritative = false
   try {
     const data = await api('/api/namespaces', { silent: true })
     available = (data.namespaces ?? []).map((item) => item.name)
+    authoritative = true
   } catch {
     try {
       const stats = await api('/api/stats', { silent: true })
@@ -436,7 +438,10 @@ async function loadNamespaces() {
   if (!available.length) available = ['default']
   const allowed = auth.value?.namespaces ?? ['*']
   if (allowed.includes('*')) {
-    namespaces.value = ['*', ...new Set(['default', namespace.value, ...available])]
+    // Do not re-add the current name when the server is authoritative: after a
+    // hard delete it would otherwise keep showing a phantom empty namespace.
+    const keep = authoritative ? [] : [namespace.value]
+    namespaces.value = ['*', ...new Set(['default', ...keep, ...available])]
   } else {
     namespaces.value = allowed
   }

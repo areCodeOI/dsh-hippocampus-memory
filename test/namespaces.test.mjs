@@ -43,6 +43,8 @@ test('namespaces: reserve, list, rename memories/keys/jobs', () => {
   const { store, auth } = makeStore()
   assert.equal(createNamespace(store, 'project-a').created, true)
   assert.equal(createNamespace(store, 'project-a').created, false)
+  assert.throws(() => createNamespace(store, '..'), /invalid namespace/)
+  assert.throws(() => createNamespace(store, '.'), /invalid namespace/)
   store.add({ content: '项目 A 使用 PostgreSQL。', kind: 'semantic', namespace: 'project-a', confirmed: true })
   store.add({ content: '项目 A 的部署窗口是周三。', kind: 'semantic', namespace: 'project-a', confirmed: true })
   const key = auth.createKey({ name: 'project-key', role: 'admin', namespaces: ['project-a'] })
@@ -138,11 +140,40 @@ test('namespaces HTTP: list/create/rename/merge/delete with roles and stats', as
 
   // A restricted key must not learn an unreadable default namespace name.
   const restricted = auth.createKey({ name: 'restricted', role: 'admin', namespaces: ['project-a'] })
-  const restrictedList = await jsonFetch(base, '/api/namespaces', {
-    headers: { authorization: `Bearer ${restricted.key}`, 'content-type': 'application/json' },
-  })
+  const restrictedHeaders = { authorization: `Bearer ${restricted.key}`, 'content-type': 'application/json' }
+  const restrictedList = await jsonFetch(base, '/api/namespaces', { headers: restrictedHeaders })
   assert.equal(restrictedList.data.default, null)
   assert.deepEqual(restrictedList.data.namespaces.map((entry) => entry.name), ['project-a'])
+
+  // Summary endpoints must not reveal the unreadable default namespace name.
+  const restrictedStats = await jsonFetch(base, '/api/stats', { headers: restrictedHeaders })
+  assert.equal(restrictedStats.data.namespace, undefined)
+  assert.equal(restrictedStats.data.openConflicts, 0)
+  const restrictedMonitor = await jsonFetch(base, '/api/monitor', { headers: restrictedHeaders })
+  assert.equal(restrictedMonitor.data.memory.namespace, undefined)
+  assert.equal(restrictedMonitor.data.memory.openConflicts, 0)
+  const restrictedOverview = await jsonFetch(base, '/api/overview?namespace=project-a', { headers: restrictedHeaders })
+  assert.equal(restrictedOverview.data.namespace, undefined)
+  assert.equal(restrictedOverview.data.stats.namespace, undefined)
+  assert.equal(restrictedOverview.data.stats.openConflicts, 0)
+  const restrictedToolStats = await jsonFetch(base, '/api/tools/memory_stats', { method: 'POST', headers: restrictedHeaders, body: '{}' })
+  assert.equal(restrictedToolStats.data.namespace, undefined)
+  assert.equal((await jsonFetch(base, '/api/stats', { headers: readerHeaders })).data.namespace, 'default')
+
+  // A namespace-scoped admin cannot mint a wildcard/out-of-scope key.
+  const escapeKey = await jsonFetch(base, '/api/keys', {
+    method: 'POST',
+    headers: restrictedHeaders,
+    body: JSON.stringify({ name: 'escape', role: 'reader' }),
+  })
+  assert.equal(escapeKey.status, 403)
+  const scopedKey = await jsonFetch(base, '/api/keys', {
+    method: 'POST',
+    headers: restrictedHeaders,
+    body: JSON.stringify({ name: 'scoped', role: 'reader', namespaces: ['project-a'] }),
+  })
+  assert.equal(scopedKey.status, 201)
+  assert.deepEqual(scopedKey.data.namespaces, ['project-a'])
 
   // Reader stats (HTTP tool + MCP) must not expose counts from other spaces.
   const toolStats = await jsonFetch(base, '/api/tools/memory_stats', { method: 'POST', headers: readerHeaders, body: '{}' })

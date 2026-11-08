@@ -127,14 +127,15 @@ const maxKind = computed(() => Math.max(1, ...KIND_ORDER.map((kind) => stats.val
 async function load() {
   loading.value = true
   try {
-    const [monitorData, recentData, auditData] = await Promise.all([
+    const [monitorData, overviewData, auditData] = await Promise.all([
       api('/api/monitor'),
-      api(`/api/memories?limit=7&namespace=${encodeURIComponent(props.namespace)}`),
+      api(`/api/overview?namespace=${encodeURIComponent(props.namespace)}`),
       api('/api/audit?limit=6').catch(() => null),
     ])
     monitor.value = monitorData
-    stats.value = monitorData.memory ?? {}
-    recent.value = recentData.items ?? []
+    // Overview stats follow the selected namespace; monitor keeps global cache/job data.
+    stats.value = overviewData.stats ?? monitorData.memory ?? {}
+    recent.value = overviewData.recent ?? []
     audit.value = auditData?.items ?? null
   } catch (error) {
     ElMessage.error(error.message)

@@ -109,6 +109,7 @@ DSH NEXT / dsh-go 的面板页面不来自 `http://127.0.0.1:7337`，而是自�
 - **namespace 不是加密/隔离边界**：同一 DB、同一进程内可跨空间读取（admin/本地）；它只用于逻辑分区与 key 授权。硬隔离请用独立 DB / PostgreSQL schema / OS 权限。
 - **namespace 管理是 admin 操作**：重命名/合并/删除会批量改写 memories，全部写审计；配置的默认空间受保护，需要先改配置或显式 `force=true`。
 - **汇总接口按 key 白名单过滤**：`/api/stats`、`/api/overview`、`/api/namespaces`、`POST /api/tools/memory_stats`（HTTP 与 MCP）只返回 key 有权读取的空间；`memory_stats` 的 `byNamespace`/`openConflicts` 不会泄露其他空间。
+- **admin 角色是全局的，namespace 白名单不是权限降级**：受限 admin key 仍可列出/吊销任意 key、查看审计、导入任意空间、读配置、列出用户并重置任意用户密码，理论上可借此获得 `*` 权限。`POST /api/keys` 已拒绝创建白名单外的 key 作为纵深防御，但**不要把受限 admin 当作多租户隔离**；多租户请用独立 DB/进程，或只发放 `reader`/`writer` key。
 - **受限 key 连默认空间名都看不到**：`/api/namespaces` 的 `default` 字段仅在 key 有权访问该空间或拥有 `*` 时返回，其余情况为 `null`。
 - MCP over HTTP 的工具调用同样走角色检查；`memory://` 资源只对 wildcard namespace 的 reader/admin 开放。
 - 冲突列表、导出按 namespace 过滤；统计/监控是全局聚合，可能暴露数量级信息，敏感部署建议只发 reader `*` key。

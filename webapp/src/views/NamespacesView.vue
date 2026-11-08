@@ -8,7 +8,7 @@
           <div class="hm-inline-actions">
             <el-input v-if="isAdmin" v-model="newName" size="small" placeholder="新空间名称" style="width: 190px" maxlength="64" @keyup.enter="openCreate" />
             <el-button v-if="isAdmin" size="small" type="primary" @click="openCreate">新建</el-button>
-            <el-button size="small" @click="load">刷新</el-button>
+            <el-button size="small" @click="refresh">刷新</el-button>
           </div>
         </div>
         <p class="hm-muted small">
@@ -165,6 +165,12 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+async function refresh() {
+  await load()
+  // Let App reload the top-bar list too (external create/delete/rename).
+  emit('namespaces-changed')
 }
 
 function useNamespace(row) {

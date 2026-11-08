@@ -99,7 +99,7 @@ curl -s -X POST http://127.0.0.1:7337/api/keys \
 Authorization: Bearer hk_...
 ```
 
-`namespaces` 支持 `["*"]` 或具体列表；不在白名单的 namespace 返回 403。
+`namespaces` 支持 `["*"]` 或具体列表；不在白名单的 namespace 返回 403。空数组不再被当作 `["*"]`（会创建一个无空间访问的 key，API 直接返回 400）；受限 admin 不能创建白名单外的 key。
 
 ## 命名空间管理
 

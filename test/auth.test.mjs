@@ -146,6 +146,19 @@ test('auth: passwords are trimmed and change/reset revoke the right sessions', (
   store.close()
 })
 
+test('auth: an empty namespace list does not escalate to wildcard access', () => {
+  const { auth, store } = makeAuth()
+  assert.throws(() => auth.createKey({ name: 'none', role: 'reader', namespaces: [] }), /at least one namespace/)
+  assert.throws(() => auth.createKey({ name: 'blank', role: 'reader', namespaces: '' }), /at least one namespace/)
+  assert.throws(() => auth.createKey({ name: 'bad', role: 'reader', namespaces: 123 }), /array or comma/)
+  const key = auth.createKey({ name: 'manual', role: 'reader', namespaces: ['default'] })
+  store.db.prepare('UPDATE api_keys SET namespaces = ? WHERE id = ?').run('[]', key.id)
+  const verified = auth.verify(key.key, { isLoopback: false })
+  assert.equal(verified.ok, false)
+  assert.match(verified.reason, /no namespace access/)
+  store.close()
+})
+
 test('auth: refreshRequired notices users removed out of band', () => {
   const { auth, store } = makeAuth()
   assert.equal(auth.authRequired, false)

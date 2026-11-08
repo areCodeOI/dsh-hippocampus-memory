@@ -144,6 +144,10 @@ const resetForm = reactive({ userId: '', password: '' })
 const passwordSaving = ref(false)
 const resetSaving = ref(false)
 const isAdmin = computed(() => props.auth?.role === 'admin')
+const defaultKeyNamespaces = computed(() => {
+  const allowed = props.auth?.namespaces ?? ['*']
+  return allowed.includes('*') ? '*' : allowed.join(', ')
+})
 
 async function load() {
   loading.value = true
@@ -199,7 +203,7 @@ async function resetPassword() {
 }
 
 function openKeyDialog() {
-  Object.assign(keyForm, { name: '', role: 'reader', namespaces: '*' })
+  Object.assign(keyForm, { name: '', role: 'reader', namespaces: defaultKeyNamespaces.value })
   keyDialog.value = true
 }
 

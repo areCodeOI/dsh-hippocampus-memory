@@ -301,7 +301,9 @@ window.__ModuleLoader__.load({
           setDefaultNamespace(data.default || '')
           const allowed = authData?.auth?.namespaces ?? ['*']
           const names = items.map((item) => item.name)
-          const unique = [...new Set(allowed.includes('*') ? ['*', ...names] : names)]
+          // Restricted keys may allow an empty namespace that has no memories
+          // yet; keep the allow-list names visible so it can be selected.
+          const unique = [...new Set(allowed.includes('*') ? ['*', ...names] : [...allowed, ...names])]
           setNamespaces(unique)
           setNamespace((current) =>
             unique.includes(current) ? current : data.default && unique.includes(data.default) ? data.default : unique[0] || 'default',
