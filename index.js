@@ -6,6 +6,7 @@
  * `hippocampus-http` (REST/MCP-over-HTTP) for other models and languages.
  */
 
+import Schema from '@deepseek-ai/schemastery'
 import { MemoryStore } from './lib/store.js'
 import { TOOL_DEFS, callTool, renderToolResult, memorySystemPrompt } from './lib/tools.js'
 import { resolveStorageConfig } from './lib/paths.js'
@@ -15,6 +16,16 @@ import { appendAutoRecall, extractUserText, shouldAutoRecall } from './lib/auto-
 import { registerDshGoUi } from './lib/dsh-go-ui.js'
 import { createWebUiService } from './lib/webui.js'
 import { vectorWeightFromEnv } from './lib/scoring.js'
+
+export const Config = Schema.object({
+  httpEnabled: Schema.boolean().default(true).description('启动本机 HTTP/WebUI（127.0.0.1:7337）'),
+  httpPort: Schema.natural().min(1).max(65535).default(7337).description('WebUI/REST 端口'),
+  namespace: Schema.string().default('default').description('默认记忆空间，用于隔离不同项目/agent'),
+  autoRecall: Schema.boolean().default(true).description('每轮对话前自动召回相关记忆'),
+  injectPrompt: Schema.boolean().default(true).description('向系统提示词注入记忆使用规范'),
+  autoReplay: Schema.boolean().default(true).description('后台自动回放/衰减/巩固'),
+  retrievalLimit: Schema.natural().min(1).max(50).default(5).description('memory_search 默认返回条数'),
+})
 
 export const inject = ['tools']
 

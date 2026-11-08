@@ -82,6 +82,10 @@ node bin/hippocampus.mjs import backup.json
         httpToken: ''              # 空 = 本机自动管理员
 ```
 
+dsh-go 的插件详情 →「设置」会直接读取这里的 `Config` schema，可改
+`httpEnabled`、`httpPort`、`namespace`、`autoRecall`、`injectPrompt`、
+`autoReplay`、`retrievalLimit`；保存后按 App 提示重启/生效。
+
 要覆盖配置，不要改 profile 的 `package.json`；在 `$DSH_PROFILE_DIR/cordis.patch.yml` 末尾加一个同 id 的覆盖行即可（Loader 会用完整 `config` 替换原行）：
 
 ```yaml

@@ -72,6 +72,7 @@
   },
   "icon": "icon.svg",
   "dependencies": {
+    "@deepseek-ai/schemastery": "^3.19.0",
     "pg": "^8.13.1"
   },
   "dshGo": {
