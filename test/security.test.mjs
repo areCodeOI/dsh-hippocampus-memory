@@ -181,3 +181,18 @@ test('security: query token works only for /metrics, not /api', async () => {
   const api = await request(port, 'GET', '/api/stats?token=secret-token')
   assert.equal(api.status, 401)
 })
+
+test('security: the loopback panel link endpoint is origin-gated', async () => {
+  const { port } = await startServer({ token: 'secret-token' })
+  const panel = await request(port, 'GET', '/api/webui/link', {
+    headers: { origin: 'http://127.0.0.1:3080' },
+  })
+  assert.equal(panel.status, 200)
+  assert.match(panel.json.url, new RegExp(`^http://127\\.0\\.0\\.1:${port}/#token=secret-token$`))
+  const evil = await request(port, 'GET', '/api/webui/link', {
+    headers: { origin: 'https://evil.example' },
+  })
+  assert.equal(evil.status, 403)
+  const bare = await request(port, 'GET', '/api/webui/link')
+  assert.equal(bare.status, 403)
+})

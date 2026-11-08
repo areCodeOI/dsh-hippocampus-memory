@@ -12,7 +12,9 @@
 
 - SQLite 文件在应用私有目录（默认 `<插件>/.data/hippocampus/memory.db`；旧版 `$DSH_HOME/hippocampus/memory.db` 会自动沿用；权限 600）。
 - **HTTP 默认开启**（`httpEnabled: true`），但首次启动自动生成 token，所有请求（含回环）都需要它；只监听 `127.0.0.1`。不需要时设 `httpEnabled: false`。
-- **WebUI token**：首次启动自动生成 32 字节随机 token，保存在
+- **WebUI token**：首次启动自动生成 32 字节随机 token；DSH 侧边栏面板通过
+  回环 Origin 的 `GET /api/webui/link` 取带 token 的登录链接（远程网页读不到；
+  同机 App 仍可伪造 Origin，token 对本地 App 不是强隔离）。token 保存在
   `$DSH_HOME/hippocampus/webui-token`（0600，目录 0700）；`httpToken` 可覆盖。
   面板复制的链接把 token 放在 URL **fragment**（不发给服务器/Referer），
   WebUI 读取后立即清除地址栏。链接等同于密码，不要转发/截图；轮换时删除 token 文件并重启。
