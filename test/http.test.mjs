@@ -108,7 +108,7 @@ test('HTTP: MCP endpoint, tool listing and generic tool calls', async () => {
   assert.equal(call.result.structuredContent.action, 'created')
 
   const tools = await fetch(`${base}/api/tools`).then((response) => response.json())
-  assert.equal(tools.tools.length, 8)
+  assert.equal(tools.tools.length, 9)
 
   const direct = await fetch(`${base}/api/tools/memory_search`, {
     method: 'POST',

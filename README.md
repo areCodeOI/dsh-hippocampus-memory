@@ -15,6 +15,7 @@
 - 默认每轮对话自动召回相关记忆；也可以手动长按「存进记忆」。
 - 同一份记忆可给 dsh-go 手机 App、DSH 网页/桌面、Claude/Cursor（MCP）一起用。
 - 记忆空间（namespace）按项目/agent 分区；WebUI「记忆空间」和 `namespace` CLI 都能新建、重命名、合并、删除。
+- 危险空间操作自动备份；空间可设只读/保留期/自动召回，AI 通过只读 `memory_namespace` 工具查看空间。
 
 ## 安装：选你的场景
 
@@ -67,7 +68,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 | 浏览器搜索/编辑/处理冲突/备份 | 打开 `http://127.0.0.1:7337/`，首次创建管理员/登录；教程 [USE-WEB.md](docs/USE-WEB.md) |
 | 让 AI 安装/体检/排障 | [AI-AUTOMATION.md](docs/AI-AUTOMATION.md) |
 | 理解记忆模型/衰减/回放 | [MEMORY-MODEL.md](docs/MEMORY-MODEL.md) |
-| 看 8 个工具参数 | [TOOLS.md](docs/TOOLS.md) |
+| 看 9 个工具参数 | [TOOLS.md](docs/TOOLS.md) |
 | 调路径/端口/PostgreSQL/嵌入 | [CONFIG.md](docs/CONFIG.md) |
 | 出问题按症状排查 | [FAQ.md](docs/FAQ.md) |
 
@@ -87,7 +88,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 
 - 默认库：`<项目目录>/.data/hippocampus/memory.db`；旧版 `$DSH_HOME/hippocampus/memory.db` 会自动沿用。
 - 默认只监听 `127.0.0.1`，不上传；但数据库**未加密**，依赖设备锁屏/文件权限。
-- 备份：WebUI「设置 → 导出」下载 JSON，或复制 `memory.db`（先停服务）。
+- 备份：WebUI「设置 → 备份」或 `backup create` 生成逻辑快照（含记忆/冲突/空间元数据，不含用户/密钥）；也可导出 JSON 或复制 `memory.db`（先停服务）。备份文件含记忆内容，注意文件权限。
 - 跨机访问务必设置 `HIPOCAMPUS_TOKEN`；CORS 只允许回环来源，跨站写请求会被 403，DNS rebinding Host 会被 421。
 - 首次打开 WebUI 创建管理员后，回环也要求登录会话/API key；共享设备请退出登录并锁屏。
 - 详见 [SECURITY.md](docs/SECURITY.md) 与 [CONFIG.md](docs/CONFIG.md)。
@@ -95,8 +96,12 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 ## 开发与测试
 
 ```bash
-npm test                         # 86 个测试
-node test/smoke-runtime.mjs      # 104 项运行时冒烟
+npm test                         # 106 个测试
+npm run test:smoke               # 104 项运行时冒烟
+npm run test:link                # 链接安装（无本地 node_modules）回归
+npm run test:pg                  # 真实 PostgreSQL（需 HIPPOCAMPUS_TEST_PG_URL；未设置则跳过）
+cd webapp && npm test            # Vue 组件测试（Vitest）
+cd webapp && npm run test:e2e    # Playwright：首次 setup → 记忆空间 → 新建空间
 ```
 
 代码结构、Web 构建、测试策略见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。

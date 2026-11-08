@@ -11,3 +11,6 @@ webapp/node_modules/
 .env
 .env.*
 .DS_Store
+webapp/test-results/
+webapp/playwright-report/
+.e2e-data/

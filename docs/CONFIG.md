@@ -115,7 +115,10 @@ dsh-go 的插件详情 →「设置」会直接读取这里的 `Config` schema�
 - 空间是隐式的：写入首条记忆时创建；也可以在 WebUI「记忆空间」页或 CLI 预留空空间。
 - 默认空间由 `namespace` 配置决定；重命名/删除/合并默认空间需要先改配置，或显式 `force=true`。
 - 重命名会同步 API key 的空间白名单和排队任务；历史审计保留旧名称。
-- 空空间名记录在现有 `meta` 表（`namespace_registry`），**没有新增表**，schemaVersion 仍为 3。
+- v0.4 起使用 `namespaces` 表保存空间元数据与轻量策略（schemaVersion 4）；旧库启动时自动从 `meta.namespace_registry` 迁移，无需手工操作。
+- 每空间可配 `description/color/readOnly/archived/retentionDays/autoRecall/embeddingProvider/softLimit/settings`：
+  `readOnly`/`archived` 拒绝新的记忆写入；`retentionDays` 由回放归档过期记忆；`autoRecall:false` 跳过自动召回。
+- 危险空间操作默认先自动写逻辑备份（见 [API.md](API.md#备份与恢复)），可用 `--no-backup` 关闭。
 - namespace 是逻辑分区，不是加密/权限边界；硬隔离请用独立 DB 或 PostgreSQL schema。
 
 ```bash
@@ -147,6 +150,9 @@ WebUI 对应页面与 HTTP 接口见 [API.md](API.md#命名空间管理)。
 | `HIPPOCAMPUS_WEB_ROOT` | 自定义 WebUI 静态目录 |
 | `HIPPOCAMPUS_RATE_LIMIT` / `HIPPOCAMPUS_RATE_WINDOW_MS` | 每 key/IP 限流 |
 | `HIPPOCAMPUS_CORS_ORIGINS` | 额外允许的浏览器跨源 Origin（逗号分隔；`*` 放开，慎用） |
+| `HIPPOCAMPUS_BACKUP_BEFORE_NAMESPACE` | 危险空间操作前自动备份，默认 `1`；`0` 关闭 |
+| `HIPPOCAMPUS_BACKUP_KEEP` | 逻辑备份保留份数，默认 20 |
+| `HIPPOCAMPUS_BACKUP_DIR` | PostgreSQL 模式的备份目录；SQLite 固定为数据库同目录 `backups/` |
 | `HIPPOCAMPUS_MAINTENANCE_HOURS` | 每日 maintenance 调度间隔（小时，默认 24；`0` 关闭） |
 | `HIPPOCAMPUS_METRICS_PUBLIC` | `1` 时 `/metrics` 不需要 token |
 | `HIPPOCAMPUS_EMBEDDING_PROVIDER` | `openai` / `ollama` / `none` |

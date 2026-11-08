@@ -18,11 +18,11 @@ function makeStore(namespace = 'default') {
     try { store.close() } catch {}
     fs.rmSync(dir, { recursive: true, force: true })
   })
-  return { store, auth }
+  return { store, auth, dir }
 }
 
-async function startServer(store) {
-  const server = createMemoryHttpServer({ store, startWorker: false })
+async function startServer(store, options = {}) {
+  const server = createMemoryHttpServer({ store, startWorker: false, ...options })
   const address = await listen(server, { port: 0, host: '127.0.0.1' })
   cleanups.push(async () => {
     await new Promise((resolve) => server.close(resolve))
@@ -105,6 +105,81 @@ test('namespaces: soft and hard delete, persona/default protection', () => {
   assert.equal(hard.deleted, 1)
   assert.equal(store.list({ namespace: 'temp2' }).total, 0)
   assert.equal(listNamespaces(store).namespaces.some((entry) => entry.name === 'temp2'), false)
+})
+
+test('namespaces HTTP: metadata, backup API, async queue and memory_namespace tool', async () => {
+  const { store, auth, dir } = makeStore()
+  const base = await startServer(store, { backupDir: path.join(dir, 'backups') })
+  const registered = auth.registerAdmin({ email: 'admin2@example.com', password: 'correct horse battery' })
+  const admin = { authorization: `Bearer ${registered.token}`, 'content-type': 'application/json' }
+
+  const created = await jsonFetch(base, '/api/namespaces', {
+    method: 'POST',
+    headers: admin,
+    body: JSON.stringify({ name: 'meta-ns', description: 'meta test', color: '#123456' }),
+  })
+  assert.equal(created.status, 201)
+
+  const patched = await jsonFetch(base, '/api/namespaces/meta-ns', {
+    method: 'PATCH',
+    headers: admin,
+    body: JSON.stringify({ description: 'updated', readOnly: true, retentionDays: 30 }),
+  })
+  assert.equal(patched.status, 200)
+  assert.equal(patched.data.namespace.description, 'updated')
+  assert.equal(patched.data.namespace.readOnly, true)
+
+  const blocked = await jsonFetch(base, '/api/memories', {
+    method: 'POST',
+    headers: admin,
+    body: JSON.stringify({ content: 'read only write', namespace: 'meta-ns' }),
+  })
+  assert.equal(blocked.status, 400)
+
+  const unlocked = await jsonFetch(base, '/api/namespaces/meta-ns', {
+    method: 'PATCH',
+    headers: admin,
+    body: JSON.stringify({ readOnly: false }),
+  })
+  assert.equal(unlocked.status, 200)
+  const written = await jsonFetch(base, '/api/memories', {
+    method: 'POST',
+    headers: admin,
+    body: JSON.stringify({ content: 'allowed write', namespace: 'meta-ns' }),
+  })
+  assert.equal(written.status, 201)
+
+  const tool = await jsonFetch(base, '/api/tools/memory_namespace', { method: 'POST', headers: admin, body: '{}' })
+  assert.equal(tool.status, 200)
+  assert.ok(tool.data.namespaces.some((item) => item.name === 'meta-ns' && item.description === 'updated'))
+
+  const backup = await jsonFetch(base, '/api/backups', { method: 'POST', headers: admin, body: JSON.stringify({ label: 'http-test' }) })
+  assert.equal(backup.status, 201)
+  assert.match(backup.data.name, /^memory-.*\.json$/)
+  const listed = await jsonFetch(base, '/api/backups', { headers: admin })
+  assert.ok(listed.data.backups.some((item) => item.name === backup.data.name))
+  const dry = await jsonFetch(base, '/api/backups/' + encodeURIComponent(backup.data.name) + '/restore', {
+    method: 'POST',
+    headers: admin,
+    body: '{}',
+  })
+  assert.equal(dry.status, 200)
+  assert.equal(dry.data.dryRun, true)
+  const removed = await jsonFetch(base, '/api/backups/' + encodeURIComponent(backup.data.name), {
+    method: 'DELETE',
+    headers: admin,
+  })
+  assert.equal(removed.status, 200)
+
+  const queued = await jsonFetch(base, '/api/namespaces/meta-ns?async=1', {
+    method: 'PATCH',
+    headers: admin,
+    body: JSON.stringify({ to: 'meta-ns2' }),
+  })
+  assert.equal(queued.status, 202)
+  assert.equal(queued.data.job.type, 'namespace_rename')
+  const jobs = await jsonFetch(base, '/api/jobs?limit=20', { headers: admin })
+  assert.ok(jobs.data.items.some((item) => item.id === queued.data.job.id))
 })
 
 test('namespaces HTTP: list/create/rename/merge/delete with roles and stats', async () => {

@@ -118,6 +118,7 @@ test('MCP: initialize, tools/list and the full memory tool set', async () => {
     'memory_archive',
     'memory_delete',
     'memory_replay',
+    'memory_namespace',
     'memory_stats',
   ])
   const add = list.result.tools.find((tool) => tool.name === 'memory_add')

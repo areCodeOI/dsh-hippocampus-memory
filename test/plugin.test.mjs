@@ -5,6 +5,8 @@ import path from 'node:path'
 import { afterEach, test } from 'node:test'
 import { apply, resolveLanguage } from '../index.js'
 import { TOOL_DEFS, TOOL_NAMES } from '../lib/tools.js'
+import { MemoryStore } from '../lib/store.js'
+import { createNamespace } from '../lib/namespaces.js'
 import { DatabaseSync } from 'node:sqlite'
 
 const dirs = []
@@ -146,6 +148,32 @@ test('plugin: auto-recall injects relevant memories before the model answers', a
   db.close()
   assert.ok(Number(meta?.value) >= 1)
   assert.ok(Number(last?.value) >= 1)
+})
+
+test('plugin: auto-recall honors a namespace autoRecall=false policy', async () => {
+  const { ctx, tools, handlers } = fakeContext()
+  const dbPath = tempDb()
+  const seed = new MemoryStore({ dbPath })
+  createNamespace(seed, 'default', { autoRecall: false })
+  seed.close()
+  apply(ctx, { dbPath, autoReplay: false, injectPrompt: false, autoRecall: true })
+  await tools.get('memory_add').execute(
+    { content: '用户对花生严重过敏，必须避免含花生食品。', kind: 'persona', importance: 10 },
+    {},
+  )
+
+  const handler = handlers.get('agent/pre-step')
+  const user = {
+    id: 'u-norecall',
+    role: 'user',
+    source: { kind: 'user' },
+    content: [{ type: 'text', text: '我对什么过敏？' }],
+  }
+  const decision = await handler(
+    { messages: [user], step: 1 },
+    async () => ({ kind: 'enter', messages: [user] }),
+  )
+  assert.equal(decision.messages.length, 1)
 })
 
 test('plugin: can disable prompt injection while keeping the tools', () => {

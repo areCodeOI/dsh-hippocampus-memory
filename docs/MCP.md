@@ -91,8 +91,8 @@ Content-Type: application/json
 | `initialize` | 返回协议版本、`tools/resources/prompts` 能力、`serverInfo`、中英文记忆协议 `instructions` |
 | `notifications/initialized` | 通知，无响应 |
 | `ping` | 返回 `{}` |
-| `tools/list` | 8 个工具的 `name/description/inputSchema` |
-| `tools/call` | 调用工具；结果同时给 `content[].text`（JSON 字符串）和 `structuredContent` |
+| `tools/list` | 9 个工具的 `name/description/inputSchema` |
+| `tools/call` | 调用工具；结果同时给 `content[].text`（JSON 字符串）和 `structuredContent`；只读 `memory_namespace` 可查空间列表 |
 | `resources/list` | `memory://stats`、`memory://recent`、`memory://conflicts` |
 | `resources/read` | 读取上述资源，`text` 为 JSON |
 | `prompts/list` | `hippocampus_memory_protocol` |
@@ -154,7 +154,7 @@ Content-Type: application/json
 ## 6. 每个客户端的模型能看到什么
 
 1. `initialize.instructions`：一段中英文记忆协议（什么时候查、什么时候写、冲突怎么处理）。
-2. 8 个工具的 `description`：每个工具都写清了适用场景、参数语义和禁止行为。
+2. 9 个工具的 `description`：每个工具都写清了适用场景、参数语义和禁止行为。
 3. 可选：客户端把 `prompts/get hippocampus_memory_protocol` 作为系统消息注入，进一步强化规范。
 
 记忆内容返回的是 JSON，不会自动变成系统指令；客户端应把它当**数据**。

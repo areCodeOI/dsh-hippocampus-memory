@@ -4,11 +4,11 @@
 > **难度**：进阶 · **预计阅读**：8 分钟
 > **前置**：知道记忆/召回/冲突的基本概念
 
-一句话：AI 通过这 8 个工具读写记忆，你通常不需要手动调用。
+一句话：AI 通过这 9 个工具读写记忆，你通常不需要手动调用。
 
-本文说明 8 个 `memory_*` 工具与写入/查重/冲突/召回/回放规则。
+本文说明 9 个 `memory_*` 工具与写入/查重/冲突/召回/回放规则。
 
-> **namespace 管理不在 `memory_*` 工具里**：列表/新建/重命名/合并/删除是管理员操作，
+> `memory_namespace` 只读列出空间和策略；**新建/重命名/合并/删除仍是管理员操作**，
 > 走 WebUI「记忆空间」、`/api/namespaces` 或 `hippocampus namespace` CLI。
 > 工具只负责在 `namespace` 参数指定的空间内读写；`*` 表示全部空间（仅限有通配权限的 key）。
 > 系统提示词已要求 AI 不要猜测或擅自批量删除空间。
@@ -38,7 +38,7 @@
 > 这段规则来自插件的系统提示词（`memorySystemPrompt`），agent 会按它自适应；
 > 你不需要手动指定“记什么”。如果发现它记错了，用 WebUI 或 `memory_update` 纠正。
 
-## 八个记忆工具
+## 九个记忆工具
 
 所有工具都通过同一套 `callTool` 实现，DSH、MCP、HTTP 行为一致。
 
@@ -50,10 +50,11 @@
 | `memory_update` | 纠正/提升/解决冲突 | `id`、`content`、`kind`、`importance`、`confirmed`、`supersede` |
 | `memory_archive` | 归档（可恢复，默认搜不到） | `id`、`reason` |
 | `memory_delete` | 软删除（7 天冷静期）或硬删除 | `id`、`hard`、`confirm`、`force` |
+| `memory_namespace` | 只读查看空间列表/数量/策略（默认/只读/归档/自动召回） | `includeArchived` |
 | `memory_replay` | 衰减、归档、清理、巩固、报告冲突 | `dryRun`、`namespace` |
 | `memory_stats` | 统计、自动召回使用次数与冲突列表 | `includeConflicts` |
 
-八个工具之外，Host 插件还有一个 **`memory_webui`**：启动本机 WebUI 并返回带 token 的登录链接（仅 DSH Host 暴露，不在 MCP/HTTP 工具列表里）。HTTP/UI 还提供图谱、树、任务、审计、key、指标等管理端点（见 [API.md](API.md)）。
+九个工具之外，Host 插件还有一个 **`memory_webui`**：启动本机 WebUI 并返回带 token 的登录链接（仅 DSH Host 暴露，不在 MCP/HTTP 工具列表里）。HTTP/UI 还提供图谱、树、任务、审计、key、指标等管理端点（见 [API.md](API.md)）。
 
 `memory_add` 的 `kind` 选择建议：
 

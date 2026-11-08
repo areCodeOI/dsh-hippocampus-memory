@@ -54,4 +54,4 @@ tools/call  memory_add     {"content":"...","kind":"episodic"}
 tools/call  memory_search  {"query":"...","limit":5}
 ```
 
-MCP 客户端的模型不需要知道 SQLite 或本项目内部结构，只需要这 8 个工具。
+MCP 客户端的模型不需要知道 SQLite 或本项目内部结构，只需要这 9 个工具。

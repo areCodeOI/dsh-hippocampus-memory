@@ -255,7 +255,24 @@ CREATE TABLE events (
 );
 
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
+CREATE TABLE namespaces (
+  name TEXT PRIMARY KEY,
+  description TEXT NOT NULL DEFAULT '',
+  color TEXT NOT NULL DEFAULT '',
+  archived INTEGER NOT NULL DEFAULT 0,
+  read_only INTEGER NOT NULL DEFAULT 0,
+  retention_days INTEGER,
+  auto_recall INTEGER,
+  embedding_provider TEXT,
+  soft_limit INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  settings TEXT NOT NULL DEFAULT '{}'
+);
 ```
+
+> v0.4（schemaVersion 4）新增 `namespaces` 表；旧库启动时自动从 `meta.namespace_registry` 回填。
 
 索引：`status`、`kind`、`namespace`、`created_at`、`(namespace, content_hash)`、`purge_after`。
 

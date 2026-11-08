@@ -40,6 +40,7 @@
     "test": "node test/run-tests.mjs",
     "test:smoke": "node test/smoke-runtime.mjs",
     "test:link": "node test/link-install.mjs",
+    "test:pg": "node test/pg-integration.mjs",
     "start:mcp": "node bin/hippocampus-mcp.mjs",
     "start:http": "node bin/hippocampus-http.mjs"
   },

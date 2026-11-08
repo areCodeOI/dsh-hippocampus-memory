@@ -62,6 +62,28 @@
         </el-table>
       </section>
 
+      <section v-if="isAdmin" class="hm-card">
+        <div class="hm-card-head">
+          <h2>备份</h2>
+          <el-button v-if="isAdmin" type="primary" size="small" @click="createBackup">立即备份</el-button>
+        </div>
+        <p class="hm-muted small">危险空间操作会自动备份；恢复只替换记忆/空间数据，执行前会再自动备份当前状态。</p>
+        <el-table :data="backups" class="hm-table" row-key="name">
+          <el-table-column label="文件 / 时间" min-width="240">
+            <template #default="{ row }">
+              <div class="hm-table-main"><strong>{{ row.name }}</strong><span>{{ fmtBytes(row.size) }} · {{ ago(row.createdAt) }}</span></div>
+            </template>
+          </el-table-column>
+          <el-table-column label="" width="180" align="right">
+            <template #default="{ row }">
+              <el-button size="small" text type="primary" @click="restore(row)">恢复</el-button>
+              <el-button size="small" text type="danger" @click="removeBackup(row)">删除</el-button>
+            </template>
+          </el-table-column>
+          <template #empty><div class="hm-empty"><p>还没有备份</p></div></template>
+        </el-table>
+      </section>
+
       <section class="hm-card">
         <div class="hm-card-head"><h2>账号安全</h2><el-tag size="small" effect="plain">{{ auth?.role ?? '未登录' }}</el-tag></div>
         <el-form label-position="top" class="hm-password-form">
@@ -121,13 +143,13 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ago, api } from '../lib'
+import { ago, api, fmtBytes } from '../lib'
 
 const props = defineProps({
   refreshKey: { type: Number, default: 0 },
   auth: { type: Object, default: null },
 })
-const emit = defineEmits(['navigate'])
+const emit = defineEmits(['navigate', 'refresh'])
 
 const loading = ref(true)
 const config = ref({})
@@ -138,6 +160,7 @@ const keySaving = ref(false)
 const secret = ref('')
 const fileInput = ref(null)
 const keyForm = reactive({ name: '', role: 'reader', namespaces: '*' })
+const backups = ref([])
 const users = ref([])
 const passwordForm = reactive({ current: '', next: '', confirm: '' })
 const resetForm = reactive({ userId: '', password: '' })
@@ -157,11 +180,56 @@ async function load() {
       const data = await api('/api/keys')
       keys.value = data.keys
       users.value = (await api('/api/users')).users
+      backups.value = (await api('/api/backups').catch(() => ({ backups: [] }))).backups
     }
   } catch (error) {
     ElMessage.error(error.message)
   } finally {
     loading.value = false
+  }
+}
+
+async function createBackup() {
+  try {
+    const result = await api('/api/backups', { method: 'POST', body: { label: 'webui' } })
+    ElMessage.success('已备份：' + result.name)
+    backups.value = (await api('/api/backups')).backups
+  } catch (error) {
+    ElMessage.error(error.message)
+  }
+}
+
+async function restore(row) {
+  try {
+    const dry = await api('/api/backups/' + encodeURIComponent(row.name) + '/restore', {
+      method: 'POST',
+      body: {},
+    })
+    await ElMessageBox.confirm(
+      '将恢复 ' + dry.snapshot.memories + ' 条记忆 / ' + dry.snapshot.namespaces + ' 个空间（当前 ' + dry.current.memories + ' 条）。执行前会自动备份当前状态。',
+      '恢复备份',
+      { type: 'warning' },
+    )
+    await api('/api/backups/' + encodeURIComponent(row.name) + '/restore', {
+      method: 'POST',
+      body: { dryRun: false, confirm: true },
+    })
+    ElMessage.success('恢复完成')
+    await load()
+    emit('refresh')
+  } catch (error) {
+    if (error !== 'cancel') ElMessage.error(error.message)
+  }
+}
+
+async function removeBackup(row) {
+  try {
+    await ElMessageBox.confirm('删除备份 ' + row.name + '？', '删除备份', { type: 'warning' })
+    await api('/api/backups/' + encodeURIComponent(row.name), { method: 'DELETE' })
+    ElMessage.success('已删除')
+    backups.value = (await api('/api/backups')).backups
+  } catch (error) {
+    if (error !== 'cancel') ElMessage.error(error.message)
   }
 }
 

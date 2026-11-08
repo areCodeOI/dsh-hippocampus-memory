@@ -198,16 +198,26 @@ export function apply(ctx, config = {}) {
         // store.search rejects queries over 1000 chars; long user messages must
         // still be recallable instead of silently failing the whole step.
         const query = text.length > 1000 ? text.slice(0, 1000) : text
+        const recallNamespace = config.autoRecallNamespace || store.namespace
+        if (recallNamespace !== '*') {
+          const policy = store.namespacePolicy(recallNamespace)
+          if (policy.archived || policy.autoRecall === false) return decision
+        }
         const result = store.search(query, {
           limit: Math.min(8, Math.max(1, Number(config.autoRecallLimit) || 4)),
-          namespace: config.autoRecallNamespace || store.namespace,
+          namespace: recallNamespace,
           mode: 'relevance',
           // Injecting context is a background read, not a user access: it must
           // not refresh last_access_at and keep decaying memories alive.
           updateAccess: false,
         })
         const minScore = Math.max(0, Number(config.autoRecallMinScore) || 0.18)
-        const memories = (result.memories ?? []).filter((memory) => (memory.score ?? 0) >= minScore)
+        const memories = (result.memories ?? []).filter((memory) => {
+          if ((memory.score ?? 0) < minScore) return false
+          if (recallNamespace !== '*') return true
+          const policy = store.namespacePolicy(memory.namespace)
+          return !policy.archived && policy.autoRecall !== false
+        })
         if (memories.length > 0) {
           // Visible usage record for the panel / memory_stats. Only count an
           // actual injection, so idle turns do not write to the database.

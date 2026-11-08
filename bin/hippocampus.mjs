@@ -16,7 +16,8 @@ import { TOOL_DEFS, callTool } from '../lib/tools.js'
 import { resolveStorageConfig, storageLabel } from '../lib/paths.js'
 import { createMemoryHttpServer, listen } from '../lib/http.js'
 import { AuthService } from '../lib/auth.js'
-import { listNamespaces, createNamespace, renameNamespace, mergeNamespaces, deleteNamespace } from '../lib/namespaces.js'
+import { listNamespaces, createNamespace, updateNamespace, renameNamespace, mergeNamespaces, deleteNamespace } from '../lib/namespaces.js'
+import { createBackup, listBackups, restoreBackup, deleteBackup } from '../lib/backup.js'
 import { nodeExecutable } from '../lib/exec.js'
 
 const { values, positionals } = parseArgs({
@@ -67,6 +68,14 @@ const { values, positionals } = parseArgs({
     token: { type: 'string' },
     email: { type: 'string' },
     password: { type: 'string' },
+    description: { type: 'string' },
+    color: { type: 'string' },
+    'retention-days': { type: 'string' },
+    'auto-recall': { type: 'string' },
+    'read-only': { type: 'boolean' },
+    archived: { type: 'boolean' },
+    label: { type: 'string' },
+    'no-backup': { type: 'boolean' },
     help: { type: 'boolean', short: 'h' },
   },
   allowPositionals: true,
@@ -98,11 +107,19 @@ commands:
                                --email x@y.com [--password 新密码]
                                省略 --password 时会生成一次性强密码（只显示一次）
   namespace list               列出记忆空间（总数/分层/最近写入）
-  namespace create <name>      预留空空间（写入首条记忆也会自动创建）
+  namespace create <name>      预留空空间（可用 --description/--color）
+  namespace update <name>      更新描述/只读/归档/保留期/自动召回：
+                               --description --color --read-only --archived
+                               --retention-days 180 --auto-recall on|off|inherit
   namespace rename <from> <to> 重命名；同步 API key 白名单与排队任务
   namespace merge <from> <into> 合并；精确重复的 active 记忆会去重
   namespace delete <name>      默认 7 天软删除；--hard --confirm 永久删除
                                --force 允许操作配置的默认空间或 persona
+  backup list                  列出逻辑备份
+  backup create                立即备份（--label 说明）
+  backup restore <name>        预览恢复（--dry-run 默认）；--confirm 执行
+  backup delete <name>         删除备份
+  所有危险空间操作默认先自动备份；--no-backup 可关闭
   migrate                      复制到一个新存储（--from-db/--from-pg-url → --to-pg-url/--to-db）
   serve-http                   启动 HTTP/MCP 服务（--port 7337）
   serve-mcp                    启动 stdio MCP 服务
@@ -168,6 +185,24 @@ function formatStats(stats) {
   process.stdout.write(`分层：${Object.entries(stats.byKind).map(([k, v]) => `${k}=${v}`).join('  ') || '空'}\n`)
   process.stdout.write(`待确认冲突：${stats.openConflicts}；上次回放：${stats.lastReplayAt ? new Date(stats.lastReplayAt).toISOString() : '从未'}\n`)
   process.stdout.write(`数据库大小：${(stats.dbSizeBytes / 1024).toFixed(1)} KiB\n`)
+}
+
+const backupBeforeNamespace = process.env.HIPPOCAMPUS_BACKUP_BEFORE_NAMESPACE !== '0'
+
+function namespaceMetaFromValues() {
+  const meta = {}
+  if (values.description !== undefined) meta.description = values.description
+  if (values.color !== undefined) meta.color = values.color
+  if (values['retention-days'] !== undefined) {
+    meta.retentionDays = values['retention-days'] === '' ? null : Number(values['retention-days'])
+  }
+  if (values['auto-recall'] !== undefined) {
+    const value = String(values['auto-recall']).toLowerCase()
+    meta.autoRecall = value === 'inherit' ? null : value === 'on' || value === 'true' || value === '1'
+  }
+  if (values['read-only']) meta.readOnly = true
+  if (values.archived) meta.archived = true
+  return meta
 }
 
 async function main() {
@@ -348,24 +383,51 @@ async function main() {
         }
         if (!rest[1]) fail('namespace needs a name: namespace <create|rename|merge|delete> <name>')
         if (sub === 'create') {
-          print(createNamespace(store, rest[1]))
+          print(createNamespace(store, rest[1], namespaceMetaFromValues()))
+          break
+        }
+        if (sub === 'update') {
+          print(updateNamespace(store, rest[1], namespaceMetaFromValues()))
           break
         }
         if (sub === 'rename') {
           if (!rest[2]) fail('namespace rename needs <from> <to>')
-          print(renameNamespace(store, rest[1], rest[2], { force: values.force }))
+          print(renameNamespace(store, rest[1], rest[2], { force: values.force, backup: backupBeforeNamespace && !values['no-backup'], meta: namespaceMetaFromValues() }))
           break
         }
         if (sub === 'merge') {
           if (!rest[2]) fail('namespace merge needs <from> <into>')
-          print(mergeNamespaces(store, rest[1], rest[2], { force: values.force }))
+          print(mergeNamespaces(store, rest[1], rest[2], { force: values.force, backup: backupBeforeNamespace && !values['no-backup'] }))
           break
         }
         if (sub === 'delete') {
-          print(deleteNamespace(store, rest[1], { hard: values.hard, confirm: values.confirm, force: values.force }))
+          print(deleteNamespace(store, rest[1], { hard: values.hard, confirm: values.confirm, force: values.force, backup: backupBeforeNamespace && !values['no-backup'] }))
           break
         }
         fail(`unknown namespace command: ${sub}`)
+      }
+
+      case 'backup': {
+        const sub = rest[0] ?? 'list'
+        if (sub === 'list') {
+          print(listBackups({ store }))
+          break
+        }
+        if (sub === 'create') {
+          print(createBackup(store, { label: values.label ?? 'cli' }))
+          break
+        }
+        if (sub === 'restore') {
+          if (!rest[1]) fail('backup restore needs <name> (use backup list)')
+          print(restoreBackup({ store, name: rest[1], dryRun: !values.confirm }))
+          break
+        }
+        if (sub === 'delete') {
+          if (!rest[1]) fail('backup delete needs <name>')
+          print(deleteBackup({ store, name: rest[1] }))
+          break
+        }
+        fail(`unknown backup command: ${sub}`)
       }
 
       case 'user': {

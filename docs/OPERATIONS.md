@@ -292,7 +292,7 @@ systemctl start hippocampus
 curl -s http://127.0.0.1:7337/ready
 ```
 
-Schema 迁移是**加法式**的（新表 `IF NOT EXISTS`，`meta.schema_version` 递增）；升级前仍建议备份。若数据库 schema 比代码新，启动会拒绝并提示升级。
+Schema 迁移采用版本化迁移函数（当前 schemaVersion 4：新增 `namespaces` 表并从 `meta.namespace_registry` 回填）；基表仍用 `IF NOT EXISTS`。升级前仍建议备份；恢复接口和 `backup create` 可生成逻辑快照。若数据库 schema 比代码新，启动会拒绝并提示升级。
 
 ## 10. 故障排查
 

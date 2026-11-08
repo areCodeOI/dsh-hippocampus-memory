@@ -23,7 +23,12 @@
                 <span>
                   <el-tag v-if="row.name === defaultNamespace" size="small" type="success" effect="plain">默认</el-tag>
                   <el-tag v-if="row.reserved" size="small" effect="plain">预留</el-tag>
+                  <el-tag v-if="row.namespaceArchived" size="small" type="info" effect="plain">已归档</el-tag>
+                  <el-tag v-if="row.readOnly" size="small" type="warning" effect="plain">只读</el-tag>
+                  <el-tag v-if="row.autoRecall === false" size="small" type="info" effect="plain">不自动召回</el-tag>
+                  <el-tag v-if="row.retentionDays" size="small" type="info" effect="plain">保留 {{ row.retentionDays }} 天</el-tag>
                 </span>
+                <em v-if="row.description" class="hm-muted" style="font-style: normal; font-size: 11px">{{ row.description }}</em>
               </div>
             </template>
           </el-table-column>
@@ -44,6 +49,7 @@
           <el-table-column label="" width="270" align="right">
             <template #default="{ row }">
               <el-button size="small" text @click="useNamespace(row)">切换</el-button>
+              <el-button v-if="isAdmin" size="small" text @click="openSettings(row)">设置</el-button>
               <el-button v-if="isAdmin" size="small" text @click="openRename(row)">重命名</el-button>
               <el-button v-if="isAdmin" size="small" text @click="openMerge(row)">合并</el-button>
               <el-button v-if="isAdmin" size="small" text type="danger" @click="openDelete(row)">删除</el-button>
@@ -86,6 +92,28 @@
       <template #footer>
         <el-button @click="mergeOpen = false">取消</el-button>
         <el-button type="primary" :loading="saving" :disabled="!mergeInto" @click="doMerge">合并</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="settingsOpen" title="空间设置" width="min(560px, 92vw)">
+      <p class="hm-muted small">目标：<code>{{ settingsRow?.name }}</code>。只读/归档会拒绝新的记忆写入；保留期由回放执行归档。</p>
+      <el-form label-position="top" class="hm-form">
+        <el-form-item label="描述" class="full"><el-input v-model="settingsForm.description" type="textarea" :rows="2" maxlength="500" /></el-form-item>
+        <el-form-item label="颜色（可选，如 #6ee7d8）"><el-input v-model="settingsForm.color" maxlength="32" /></el-form-item>
+        <el-form-item label="保留天数（空 = 不限制）"><el-input v-model="settingsForm.retentionDays" placeholder="例如 180" /></el-form-item>
+        <el-form-item label="自动召回">
+          <el-select v-model="settingsForm.autoRecall">
+            <el-option label="继承默认（开启）" value="inherit" />
+            <el-option label="开启" value="on" />
+            <el-option label="关闭" value="off" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="只读"><el-switch v-model="settingsForm.readOnly" /></el-form-item>
+        <el-form-item label="归档"><el-switch v-model="settingsForm.archived" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="settingsOpen = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="doSettings">保存设置</el-button>
       </template>
     </el-dialog>
 
@@ -148,6 +176,9 @@ const deleteRow = ref(null)
 const deleteMode = ref('soft')
 const deleteTyped = ref('')
 const deleteForce = ref(false)
+const settingsOpen = ref(false)
+const settingsRow = ref(null)
+const settingsForm = ref({ description: '', color: '', retentionDays: '', autoRecall: 'inherit', readOnly: false, archived: false })
 
 function kindText(row) {
   const kinds = row.byKind ?? {}
@@ -192,6 +223,45 @@ async function doCreate() {
     createOpen.value = false
     newName.value = ''
     ElMessage.success(result.created ? '已创建 ' + name : '空间已存在：' + name)
+    await load()
+    emit('namespaces-changed')
+  } catch (error) {
+    ElMessage.error(error.message)
+  } finally {
+    saving.value = false
+  }
+}
+
+function openSettings(row) {
+  settingsRow.value = row
+  settingsForm.value = {
+    description: row.description ?? '',
+    color: row.color ?? '',
+    retentionDays: row.retentionDays ?? '',
+    autoRecall: row.autoRecall === null || row.autoRecall === undefined ? 'inherit' : row.autoRecall ? 'on' : 'off',
+    readOnly: Boolean(row.readOnly),
+    archived: Boolean(row.namespaceArchived),
+  }
+  settingsOpen.value = true
+}
+
+async function doSettings() {
+  const form = settingsForm.value
+  saving.value = true
+  try {
+    await api('/api/namespaces/' + encodeURIComponent(settingsRow.value.name), {
+      method: 'PATCH',
+      body: {
+        description: form.description,
+        color: form.color,
+        retentionDays: form.retentionDays === '' ? null : Number(form.retentionDays),
+        autoRecall: form.autoRecall === 'inherit' ? null : form.autoRecall === 'on',
+        readOnly: form.readOnly,
+        archived: form.archived,
+      },
+    })
+    settingsOpen.value = false
+    ElMessage.success('设置已保存')
     await load()
     emit('namespaces-changed')
   } catch (error) {

@@ -2,6 +2,7 @@
 // and the Node test runner's directory mode differs across versions. Importing
 // the suites explicitly keeps `npm test` identical on Linux, macOS and Windows.
 import './auth.test.mjs'
+import './backup-v4.test.mjs'
 import './auto-recall.test.mjs'
 import './dsh-go.test.mjs'
 import './embeddings.test.mjs'

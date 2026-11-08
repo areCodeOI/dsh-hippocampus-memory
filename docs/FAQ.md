@@ -37,6 +37,21 @@ A：WebUI 左侧「记忆空间」页；或 CLI `node bin/hippocampus.mjs namesp
 或 HTTP `/api/namespaces`。空间是隐式分区，写入首条记忆也会创建；重命名会同步 API key 白名单与排队任务；
 删除默认是 7 天冷静期，`--hard --confirm` 才永久删除。默认空间受配置保护。详见 [API.md](API.md#命名空间管理)。
 
+**Q：危险操作会先备份吗？怎么恢复？**
+A：rename/merge/delete 默认先写逻辑备份（JSON，含记忆/冲突/空间元数据）；备份失败会中止操作。
+WebUI「设置 → 备份」或 CLI `backup list|create|restore|delete`；恢复默认 dry-run，确认后执行，
+执行前会再自动备份当前状态。恢复只替换记忆数据，用户/API key/审计保留。
+
+**Q：只读/保留期/自动召回开关在哪？**
+A：WebUI「记忆空间 → 设置」，或 `PATCH /api/namespaces/{name}` 传
+`readOnly/archived/retentionDays/autoRecall`。只读/归档拒绝新的记忆写入；保留期由回放归档；
+`autoRecall:false` 会跳过该空间的自动召回。
+
+**Q：大空间 rename/merge/delete 很慢怎么办？**
+A：接口加 `?async=1`（或 body `async:true`）转为后台 job，返回 202 + job id；
+`GET /api/jobs/{id}` 看进度，`DELETE /api/jobs/{id}` 取消（取消在事务内会回滚）。
+WebUI 当前默认同步执行，大空间建议用 API/CLI 的异步模式。
+
 <a id="reset"></a>
 ## 忘记密码 / 重置密码
 

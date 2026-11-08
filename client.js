@@ -640,7 +640,7 @@ window.__ModuleLoader__.load({
               namespaceItems.length
                 ? namespaceItems.map((item) => h('div', { className: 'hmr-row', key: item.name, onClick: () => changeNamespace(item.name) }, [
                     h('span', { className: 'hmr-tag' }, item.name),
-                    h('span', { className: 'txt' }, `${item.total} 条 · active ${item.active ?? 0} · 冲突 ${item.openConflicts ?? 0}`),
+                    h('span', { className: 'txt' }, `${item.total} 条 · active ${item.active ?? 0} · 冲突 ${item.openConflicts ?? 0}${item.readOnly ? ' · 只读' : ''}${item.autoRecall === false ? ' · 不召回' : ''}${item.namespaceArchived ? ' · 已归档' : ''}`),
                     h('span', { className: 'time' }, item.name === namespace ? '当前' : item.name === defaultNamespace ? '默认' : ''),
                   ]))
                 : h('div', { className: 'hmr-empty' }, '暂无空间'),

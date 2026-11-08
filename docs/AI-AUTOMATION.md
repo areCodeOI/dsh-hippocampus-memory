@@ -73,7 +73,7 @@
 2. 给我这个客户端要粘贴的 MCP 配置 JSON（command=node，
    args=["/绝对路径/dsh-hippocampus-memory/bin/hippocampus-mcp.mjs"]）；
 3. 告诉我配置文件放在哪、改完怎么重启；
-4. 重启后让我验证：客户端里应出现 8 个 memory_* 工具；
+4. 重启后让我验证：客户端里应出现 9 个 memory_* 工具；
 5. 不要修改项目里的代码，不要 push。
 ```
 

@@ -51,8 +51,9 @@ for (const entry of ['index.js', 'package.json', 'lib']) {
 }
 assert.equal(fs.existsSync(path.join(checkout, 'node_modules')), false, 'checkout must look like a git link install')
 
-fs.symlinkSync(source, path.join(profileModules, '@deepseek-ai', 'schemastery'), 'junction')
-fs.symlinkSync(checkout, path.join(profileModules, 'dsh-hippocampus-memory'), 'junction')
+const linkType = process.platform === 'win32' ? 'junction' : 'dir'
+fs.symlinkSync(source, path.join(profileModules, '@deepseek-ai', 'schemastery'), linkType)
+fs.symlinkSync(checkout, path.join(profileModules, 'dsh-hippocampus-memory'), linkType)
 
 const lines = [
   "import assert from 'node:assert/strict'",
@@ -72,7 +73,7 @@ const lines = [
   "  inject(_names, callback) { callback({ systemPrompt: { section() { return () => {} } }, effect(fn) { fn(); return () => {} } }) },",
   '}',
   'mod.apply(ctx, { dbPath: ' + JSON.stringify(memoryDb) + ', autoReplay: false, injectPrompt: false, httpEnabled: false })',
-  "assert.equal(tools.size, 9, 'all memory tools must register')",
+  "assert.equal(tools.size, 10, 'all memory tools must register')",
   "const added = await tools.get('memory_add').execute({ content: '链接安装验收：激活成功。', kind: 'buffer' }, {})",
   "assert.equal(added.action, 'created')",
   "const stats = await tools.get('memory_stats').execute({}, {})",

@@ -42,9 +42,13 @@ HIPPOCAMPUS_TOKEN=change-me node bin/hippocampus-http.mjs --host 0.0.0.0 --port 
 | `PATCH` | `/api/users/{id}/password` | 管理员重置密码（admin；吊销该用户全部会话） |
 | `GET` | `/api/namespaces` | 空间列表（reader；按 key 白名单过滤） |
 | `POST` | `/api/namespaces` | 预留空空间（admin） |
-| `PATCH` | `/api/namespaces/{name}` | 重命名空间（admin；同步 key/任务） |
+| `PATCH` | `/api/namespaces/{name}` | 重命名/更新策略（admin；同步 key/任务） |
 | `POST` | `/api/namespaces/{name}/merge` | 合并空间（admin；精确重复去重） |
 | `DELETE` | `/api/namespaces/{name}` | 软/硬删除空间（admin；默认空间受保护） |
+| `GET` | `/api/backups` | 逻辑备份列表（admin） |
+| `POST` | `/api/backups` | 立即备份（admin） |
+| `POST` | `/api/backups/{name}/restore` | 恢复快照；默认 dry-run，`confirm=true` 执行（admin） |
+| `DELETE` | `/api/backups/{name}` | 删除备份（admin） |
 | `POST` | `/mcp` | MCP JSON-RPC（见 [MCP.md](MCP.md)） |
 | `GET` | `/metrics` | Prometheus 指标（默认 admin；`?token=` 也可） |
 | `GET` | `/api/tools` | 工具定义列表 |
@@ -103,14 +107,20 @@ Authorization: Bearer hk_...
 
 ## 命名空间管理
 
-namespace 是同一数据库内的逻辑分区（隐式；没有单独的 `namespaces` 表）。空空间名记录在
-`meta.namespace_registry`，所以可以先预留再写入。`GET` 需要 reader，其余需要 admin。
+namespace 是同一数据库内的逻辑分区。v0.4 起使用 `namespaces` 表保存元数据与轻量策略
+（schemaVersion 4；旧库启动时自动从 `meta.namespace_registry` 迁移）。`GET` 需要 reader，其余需要 admin。
 
-- `GET /api/namespaces`：每个空间的 total、active/conflict/archived/pendingDelete、
-  byKind、openConflicts、最近写入时间；只返回当前 key 白名单内的空间。
+- `GET /api/namespaces`：每个空间的 total、active/conflict/archived（记忆状态计数）、
+  namespaceArchived（空间策略）、pendingDelete、byKind、openConflicts、最近写入时间；
+  只返回当前 key 白名单内的空间。
 - `POST /api/namespaces` `{"name":"project-a"}`：预留一个空空间（幂等）。
 - `PATCH /api/namespaces/{name}` `{"to":"project-b"}`：重命名；同步 API key 的空间白名单
-  和排队任务的 payload，历史审计保留旧名称。
+  和排队任务的 payload，历史审计保留旧名称。也可以只更新策略：
+  `description`、`color`、`archived`、`readOnly`、`retentionDays`、`autoRecall`、
+  `embeddingProvider`、`softLimit`、`settings`。`readOnly`/`archived` 会拒绝新的记忆写入；
+  `retentionDays` 由回放执行归档；`autoRecall:false` 会跳过自动召回。
+- 空间操作加 `?async=1`（或 body `async:true`）会转为后台 job，返回 202 + job；
+  `GET /api/jobs/{id}` 查看进度，`DELETE` 可取消排队/运行中的 job。
 - `POST /api/namespaces/{name}/merge` `{"into":"default"}`：迁移全部记忆；内容完全相同的
   **active** 记忆会去重合并（标签/实体/重要性/置信度/权重/访问次数取并集或最大值），
   其余迁移。目标空间不存在时会自动创建。
@@ -135,6 +145,20 @@ curl -s -X DELETE 'http://127.0.0.1:7337/api/namespaces/project-b?hard=true&conf
 请先改配置，或显式传 `force=true`（会提示配置仍指向旧名字）。目标已存在时重命名返回 409，
 请改用 merge。重命名/合并后，请同步修改插件配置里的 `namespace` / `autoRecallNamespace`
 （管理 API 不会改插件配置）。
+
+### 备份与恢复
+
+危险空间操作（rename/merge/delete）默认先写一份逻辑备份（JSON，含 memories/conflicts/namespace
+元数据），备份失败则中止操作。备份文件权限 600，默认保留最近 20 份（`HIPPOCAMPUS_BACKUP_KEEP`）。
+```bash
+curl -s -X POST http://127.0.0.1:7337/api/backups -H "Authorization: Bearer $TOKEN" -d '{"label":"manual"}'
+curl -s http://127.0.0.1:7337/api/backups -H "Authorization: Bearer $TOKEN"
+# 默认 dry-run：只报告会恢复多少条
+curl -s -X POST http://127.0.0.1:7337/api/backups/<name>/restore -H "Authorization: Bearer $TOKEN" -d '{}'
+# 确认执行；恢复前会自动再备份当前状态
+curl -s -X POST http://127.0.0.1:7337/api/backups/<name>/restore -H "Authorization: Bearer $TOKEN"   -d '{"dryRun":false,"confirm":true}'
+```
+恢复只替换记忆/冲突/空间元数据；用户、API key、审计保留。CLI 对应 `backup list|create|restore|delete`。
 
 ## 分页列表
 
