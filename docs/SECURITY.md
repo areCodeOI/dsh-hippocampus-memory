@@ -11,7 +11,7 @@
 默认部署是**单机自托管**：
 
 - SQLite 文件在应用私有目录（默认 `<插件>/.data/hippocampus/memory.db`；旧版 `$DSH_HOME/hippocampus/memory.db` 会自动沿用；权限 600）。
-- **HTTP 默认关闭**（`httpEnabled: false`）；显式开启后只监听 `127.0.0.1`，dsh-go 原生界面不依赖它。
+- **HTTP 默认开启**（`httpEnabled: true`），但首次启动自动生成 token，所有请求（含回环）都需要它；只监听 `127.0.0.1`。不需要时设 `httpEnabled: false`。
 - **WebUI token**：首次启动自动生成 32 字节随机 token，保存在
   `$DSH_HOME/hippocampus/webui-token`（0600，目录 0700）；`httpToken` 可覆盖。
   面板复制的链接把 token 放在 URL **fragment**（不发给服务器/Referer），

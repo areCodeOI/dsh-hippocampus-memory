@@ -110,14 +110,20 @@ window.__ModuleLoader__.load({
       if (options.body !== undefined) headers['content-type'] = 'application/json'
       if (token) headers.authorization = `Bearer ${token}`
       let response
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 5000)
       try {
         response = await fetch(`${base}${path}`, {
           method: options.method || 'GET',
           headers,
           body: options.body === undefined ? undefined : JSON.stringify(options.body),
+          signal: controller.signal,
         })
       } catch (error) {
-        throw new Error(`无法连接 ${base}：${error.message}`)
+        const reason = controller.signal.aborted ? '连接超时（HTTP 服务可能未启动）' : error.message
+        throw new Error(`无法连接 ${base}：${reason}`)
+      } finally {
+        clearTimeout(timer)
       }
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error?.message || `HTTP ${response.status}`)

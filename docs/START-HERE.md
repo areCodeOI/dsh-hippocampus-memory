@@ -57,7 +57,7 @@
 1) 确认 node -v 满足 >=22.13；
 2) 运行 dsh plugin --profile web add /sdcard/model/dsh-hippocampus-memory；
 3) 运行 dsh plugin --profile web list，确认列表里有 dsh-hippocampus-memory；
-4) 重启后确认插件工具可用；HTTP 默认关闭，除非我明确启用了它，否则不要检查 7337；
+4) 重启后检查 http://127.0.0.1:7337/health 是否返回 ok（默认自动启动）；
 5) 用 memory_stats 工具确认可用，并把 DB 路径告诉我。
 不要删除任何已有文件，不要 push 任何 git 仓库。每步把结果用中文告诉我。
 ```
@@ -117,8 +117,8 @@ AI 会自己决定是否调用记忆工具；你也可以在插件面板里看�
 
 2. 按 AI 的提示重启/刷新 DSH。
 3. 侧边栏「插件」旁会出现「记忆」入口；设置页会多一个「记忆」分区。
-4. 同样用 `memory_stats` 检查；WebUI 默认关闭，需要时按 [USE-WEB.md](USE-WEB.md) 开启
-   （DSH 原版没有手机面板的 WebUI 按钮，要改 `httpEnabled` 或用独立服务）。
+4. 同样用 `memory_stats` 检查；WebUI 默认已启动，token 见
+   `$DSH_HOME/hippocampus/webui-token`（DSH 原版没有手机面板的 WebUI 按钮）。
 
 注意：本地目录安装是链接，项目文件夹不要删/移。
 
@@ -176,8 +176,8 @@ curl -X POST http://127.0.0.1:7337/api/memories \
    手机丢失/被解锁可能被看到，重要设备请开锁屏。
 4. **不要随便删/移项目目录**：DSH 里装的是指向它的链接。
 5. **冲突不会自动覆盖**：新信息和旧记忆矛盾时会先挂起，等你确认（面板会有黄色提示）。
-6. **WebUI 默认关闭**：dsh-go 原生面板不需要 7337；要用浏览器管理台，
-   打开记忆面板点 **WebUI**，插件会自动生成 token 并复制登录链接
+6. **WebUI 默认启动**：首次自动生成 token；dsh-go 记忆面板点 **WebUI**
+   会复制带 token 的登录链接，直接打开 7337 则输入 token
    （见 [USE-WEB.md](USE-WEB.md) 第 0 节）。
 
 ## 8. 卡住了怎么办
@@ -186,7 +186,7 @@ curl -X POST http://127.0.0.1:7337/api/memories \
 | --- | --- |
 | 没有状态条 / 没有「存进记忆」 | App「引擎」页重启引擎；再看「插件」页是否只有一个海马体条目 |
 | `memory_*` 工具不存在 | 重新执行安装命令；确认 `dsh plugin --profile web list` 有 `dsh-hippocampus-memory` |
-| 7337 打不开 | HTTP 默认关闭；先按 [USE-WEB.md](USE-WEB.md) 开启。已开启则检查端口占用/引擎 |
+| 7337 打不开 | HTTP 默认开启；检查端口占用/引擎，或按 [USE-WEB.md](USE-WEB.md) 的 token 说明 |
 | 记忆条数是 0 | 还没写入过；说一句「记住……」或用长按「存进记忆」 |
 | 旧记忆不见了 | 检查是不是换了 App 包/设备；旧库位置见 [CONFIG.md](CONFIG.md) |
 

@@ -74,10 +74,9 @@ node bin/hippocampus.mjs import backup.json
         replayIntervalHours: 24    # 回放间隔
         retrievalLimit: 5          # 默认召回条数
         promptLanguage: auto       # auto | zh | en
-        # 默认关闭；dsh-go 面板的 WebUI 按钮会按需启动。
-        # 改为 true = 引擎启动时自动监听；token 为空时自动生成到
-        # $DSH_HOME/hippocampus/webui-token（0600）。
-        httpEnabled: false
+        # 默认开启；首次启动自动生成 token 到
+        # $DSH_HOME/hippocampus/webui-token（0600）。不需要 WebUI 时改为 false。
+        httpEnabled: true
         httpHost: 127.0.0.1
         httpPort: 7337
         httpToken: ''              # 空 = 本机自动管理员

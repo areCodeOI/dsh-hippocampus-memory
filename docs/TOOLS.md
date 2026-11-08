@@ -48,7 +48,7 @@
 | `memory_replay` | 衰减、归档、清理、巩固、报告冲突 | `dryRun`、`namespace` |
 | `memory_stats` | 统计、自动召回使用次数与冲突列表 | `includeConflicts` |
 
-八个工具之外，HTTP/UI 还提供图谱、树、任务、审计、key、指标等管理端点（见 [API.md](API.md)）。
+八个工具之外，Host 插件还有一个 **`memory_webui`**：启动本机 WebUI 并返回带 token 的登录链接（仅 DSH Host 暴露，不在 MCP/HTTP 工具列表里）。HTTP/UI 还提供图谱、树、任务、审计、key、指标等管理端点（见 [API.md](API.md)）。
 
 `memory_add` 的 `kind` 选择建议：
 

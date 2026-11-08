@@ -25,7 +25,7 @@
 | **自己写程序（HTTP）** | `node bin/hippocampus-http.mjs --port 7337`，接口见 [API.md](docs/API.md) |
 
 > 上面的路径请换成你项目实际所在目录；不需要懂代码，按 [START-HERE.md](docs/START-HERE.md) 一步步做即可。
-> WebUI/HTTP 默认关闭（减少攻击面）；dsh-go 原生面板不需要它。要用浏览器管理台，点面板里的 **WebUI** 即可自动生成 token 并复制登录链接，详见 [USE-WEB.md](docs/USE-WEB.md)。
+> WebUI/HTTP 默认启动，首次自动生成 token；dsh-go 面板的 **WebUI** 会复制带 token 的登录链接，直接打开 7337 则输入 token（见 [USE-WEB.md](docs/USE-WEB.md)）。不需要时可设 `httpEnabled: false` 关闭。
 
 装完在 dsh-go 里应看到：
 
@@ -41,12 +41,11 @@
 | --- | --- | --- |
 | `memory_*` 工具、自动召回 | 支持 | 支持 |
 | 原生状态条 / 面板 / 存进记忆 / 回忆 | 支持 | 无（用侧边栏「记忆」面板） |
-| 记忆面板 **WebUI** 一键启动 | 支持 | 无此按钮；需启用 `httpEnabled` 或运行独立服务 |
-| WebUI + token fragment 登录 | 支持 | 支持（侧边栏「打开完整管理台」会带上已填 token） |
+| 记忆面板 **WebUI** 一键启动 | 支持 | 无此按钮；WebUI 默认已启动，直接打开 7337 或让 AI 调用 `memory_webui` |
+| WebUI + token fragment 登录 | 支持 | 支持（侧边栏「打开完整管理台」会带上已填 token；也可让 AI 调用 `memory_webui`） |
 
-> DSH 原版默认也不启动 7337。要用 WebUI：把 `cordis.patch.yml` 的
-> `httpEnabled` 改为 true 后重启，token 见 `$DSH_HOME/hippocampus/webui-token`；
-> 或运行 `node bin/hippocampus-http.mjs --port 7337`。
+> DSH 原版没有手机面板的 WebUI 按钮；WebUI 默认已启动，token 见
+> `$DSH_HOME/hippocampus/webui-token`，或让 AI 调用 `memory_webui` 获取登录链接。
 
 ## 第一次用：说人话就行
 
@@ -64,7 +63,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 | 想做什么 | 去哪里 |
 | --- | --- |
 | 手机上看记忆/存记忆/回忆 | [USE-DSH-GO.md](docs/USE-DSH-GO.md) |
-| 浏览器搜索/编辑/处理冲突/备份 | 手机面板点 **WebUI** 自动生成 token 并复制登录链接；教程 [USE-WEB.md](docs/USE-WEB.md) |
+| 浏览器搜索/编辑/处理冲突/备份 | 手机面板点 **WebUI** 复制登录链接，或直接打开 `http://127.0.0.1:7337/`；教程 [USE-WEB.md](docs/USE-WEB.md) |
 | 让 AI 安装/体检/排障 | [AI-AUTOMATION.md](docs/AI-AUTOMATION.md) |
 | 理解记忆模型/衰减/回放 | [MEMORY-MODEL.md](docs/MEMORY-MODEL.md) |
 | 看 8 个工具参数 | [TOOLS.md](docs/TOOLS.md) |

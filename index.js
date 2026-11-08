@@ -8,8 +8,8 @@
 
 import { MemoryStore } from './lib/store.js'
 import { TOOL_DEFS, callTool, renderToolResult, memorySystemPrompt } from './lib/tools.js'
-import { resolveStorageConfig, storageLabel } from './lib/paths.js'
-import { createMemoryHttpServer, listen } from './lib/http.js'
+import { resolveStorageConfig } from './lib/paths.js'
+import { VERSION } from './lib/constants.js'
 import { EmbeddingService } from './lib/embeddings.js'
 import { appendAutoRecall, extractUserText, shouldAutoRecall } from './lib/auto-recall.js'
 import { registerDshGoUi } from './lib/dsh-go-ui.js'
@@ -69,6 +69,7 @@ export function apply(ctx, config = {}) {
     graphProvider: config.graphProvider,
   })
   ctx.effect(() => () => webUi.stop(), 'hippocampus: WebUI server')
+  console.warn(`[hippocampus] v${VERSION} loaded (WebUI button + memory_webui tool ready)`)
 
   // dsh-go 手机 App 的原生界面（与 Host 工具共用同一个 store）。没有 dsh-go
   // 桥接时这里保持 pending，不影响 Web/桌面端。
@@ -124,6 +125,36 @@ export function apply(ctx, config = {}) {
       `hippocampus: tool ${def.name}`,
     )
   }
+
+  // Host-only launcher: the dsh-go panel has its own WebUI button, but the
+  // official DSH agent needs a tool to start the on-demand server and return a
+  // fragment login link. Not exposed through MCP/HTTP (the HTTP API is itself
+  // the server this tool starts).
+  ctx.effect(
+    () =>
+        ctx.tools.register({
+      name: 'memory_webui',
+      description:
+        '启动本机海马体 WebUI（127.0.0.1:7337）并返回带 token fragment 的登录链接。' +
+        '用户说“打开 WebUI / 管理台”，或你需要让用户在浏览器里管理记忆时调用。' +
+        '链接含访问 token，只发给当前用户，不要转发。',
+      parameters: { type: 'object', properties: {} },
+      output: {
+        schema: {
+          type: 'object',
+          properties: { url: { type: 'string' }, origin: { type: 'string' } },
+          required: ['url', 'origin'],
+        },
+        render: (_args, value) => renderToolResult(value),
+      },
+      timeoutMs: 15_000,
+      execute: async () => {
+        const started = await webUi.start()
+        return { url: started.link, origin: started.origin }
+      },
+    }),
+    'hippocampus: tool memory_webui',
+  )
 
   if (config.autoRecall !== false) {
     ctx.on('agent/pre-step', async ({ messages }, next) => {

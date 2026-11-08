@@ -84,7 +84,7 @@ test('plugin: registers all memory tools and executes with the DSH session id', 
   const dbPath = tempDb()
   apply(ctx, { dbPath, autoReplay: false, injectPrompt: true, promptLanguage: 'zh' })
 
-  assert.deepEqual([...tools.keys()], TOOL_NAMES)
+  assert.deepEqual([...tools.keys()], [...TOOL_NAMES, 'memory_webui'])
   assert.equal(sections.length, 1)
   assert.equal(sections[0].name, 'hippocampus:memory-protocol')
   assert.match(sections[0].text, /memory_search/)
@@ -151,7 +151,7 @@ test('plugin: auto-recall injects relevant memories before the model answers', a
 test('plugin: can disable prompt injection while keeping the tools', () => {
   const { ctx, tools, sections } = fakeContext()
   apply(ctx, { dbPath: tempDb(), autoReplay: false, injectPrompt: false })
-  assert.equal(tools.size, TOOL_NAMES.length)
+  assert.equal(tools.size, TOOL_NAMES.length + 1)
   assert.equal(sections.length, 0)
 })
 

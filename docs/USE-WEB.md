@@ -7,10 +7,10 @@
 > 已装好插件后，在浏览器里管理记忆。手机/电脑都可以，不需要懂前端。
 > 只想知道手机 App 怎么用，看 [USE-DSH-GO.md](USE-DSH-GO.md)。
 
-## 0. 先打开（默认关闭）
+## 0. 先打开（默认启动）
 
-为了减少攻击面，插件**默认不启动 HTTP/WebUI**（`httpEnabled: false`）。
-dsh-go 原生面板不需要它，只有用浏览器管理台时才启动。
+插件**默认启动 HTTP/WebUI**（`httpEnabled: true`），首次启动自动生成 token；
+不需要时可设 `httpEnabled: false` 关闭。
 
 ### 方式 A：手机面板一键打开（推荐）
 
@@ -18,7 +18,7 @@ dsh-go 原生面板不需要它，只有用浏览器管理台时才启动。
 2. 点底部 **WebUI**。
 3. 插件会：
    - 首次自动生成一个随机 token，保存到 `$DSH_HOME/hippocampus/webui-token`（权限 600，不进 git）；
-   - 启动 `127.0.0.1:7337`；
+   - 确保 `127.0.0.1:7337` 在运行（默认已启动）；
    - 把带 `#token=...` 的链接复制到剪贴板。
 4. 粘贴到浏览器打开。WebUI 会读取 URL 片段里的 token，存进当前标签页的
    `sessionStorage`，并立刻从地址栏清掉 token。
@@ -48,6 +48,8 @@ DSH 原版没有 dsh-go 的「WebUI」按钮，但 Host 插件、自动召回和
 3. DSH 侧边栏「记忆」面板的「打开完整管理台」会在你已填 token 时
    自动带上 `#token=`，不用再输。
 4. 不想改配置：运行 `node bin/hippocampus-http.mjs --port 7337`（手动服务）。
+5. 也可以直接对 AI 说“打开海马体 WebUI”，它会调用 Host 工具 `memory_webui`
+   启动服务并返回带 token 的登录链接（仅 DSH 原版/桌面端有该工具）。
 
 ## 1. 打开管理台
 

@@ -30,7 +30,7 @@
 1. 先确认环境：node -v 必须 >= 22.13；不支持就停下来告诉我，不要乱装。
 2. 执行：dsh plugin --profile web add /sdcard/model/dsh-hippocampus-memory
 3. 执行：dsh plugin --profile web list，确认出现 dsh-hippocampus-memory。
-4. 重启后确认插件工具可用；HTTP 默认关闭，除非我明确启用了它，否则不要检查 7337。
+4. 重启后检查 http://127.0.0.1:7337/health 是否 ok（默认自动启动；如果 7337 被占用，报告我）。
 5. 用 memory_stats 工具确认插件可用，并告诉我 dbPath 和 memories 总数。
 6. 告诉我三件事怎么验证：输入框上方状态条「记忆 N」、长按 AI 回复的「存进记忆」、
    插件页是否只有一个「海马体长期记忆」。
@@ -76,7 +76,7 @@
 请帮我做一次海马体记忆体检，只读优先：
 1. 用 memory_stats(includeConflicts=true) 报告：总数、各层数量、待确认冲突列表；
 2. 用 memory_replay(dryRun=true) 预览回放结果（不写入）；
-3. 如果我启用了 HTTP，检查 http://127.0.0.1:7337/health 和 /api/monitor；默认关闭就跳过；
+3. 检查 http://127.0.0.1:7337/health 和 /api/monitor 是否正常（默认已启动）；
 4. 列出建议：哪些冲突需要我确认、哪些记忆建议归档、是否建议真正执行回放；
 5. 等我确认后，再执行 memory_replay（不要自动删除任何记忆）；
 6. 最后告诉我数据库路径和大小，提醒我备份。
@@ -97,7 +97,7 @@
 dsh-go 里看不到「记忆 N」状态条，长按回复也没有「存进记忆」。
 请按顺序排查并修复：
 1. dsh plugin --profile web list 里有没有 dsh-hippocampus-memory；
-2. 引擎是否在运行；HTTP 是否启用（默认关闭）；
+2. 引擎是否在运行；HTTP 是否正常（默认已启动）；
 3. 读 ~/.dsh/dsh-app/diagnostics.md 的最近错误和引擎日志尾部；
 4. 如果只是没重启，告诉我重启引擎；如果是安装断了，重新安装但不要重复装；
 5. 修好后用三处验收：状态条、长按菜单、插件页只有一个条目。
