@@ -223,24 +223,31 @@ window.__ModuleLoader__.load({
       const [pwd, setPwd] = useState({ current: '', next: '', confirm: '' })
       const [reset, setReset] = useState({ email: '', password: '', users: [] })
       const [accountNotice, setAccountNotice] = useState('')
+      const [namespace, setNamespace] = useState(() => localStorage.getItem('hippocampus.namespace') || 'default')
+      const [namespaces, setNamespaces] = useState(['default'])
+      const [namespaceItems, setNamespaceItems] = useState([])
+      const [panelAuth, setPanelAuth] = useState(null)
+      const [nsDraft, setNsDraft] = useState('')
+      const [nsNotice, setNsNotice] = useState('')
 
       const load = useCallback(async () => {
         setLoading(true)
         setError('')
         try {
           const activeToken = token || savedToken()
+          const nsQuery = `namespace=${encodeURIComponent(namespace)}`
           if (tab === 'overview') {
-            const [mon, list] = await Promise.all([
+            const [mon, overview] = await Promise.all([
               request(base, activeToken, '/api/monitor'),
-              request(base, activeToken, '/api/memories?limit=8'),
+              request(base, activeToken, `/api/overview?${nsQuery}`),
             ])
             setMonitor(mon)
-            setStats(mon.memory || {})
-            setRecent(list.items || [])
+            setStats(overview.stats || mon.memory || {})
+            setRecent(overview.recent || [])
           } else if (tab === 'memories') {
             const path = query.trim()
-              ? `/api/memories/search?q=${encodeURIComponent(query.trim())}&limit=50`
-              : '/api/memories?limit=50'
+              ? `/api/memories/search?q=${encodeURIComponent(query.trim())}&limit=50&${nsQuery}`
+              : `/api/memories?limit=50&${nsQuery}`
             const data = await request(base, activeToken, path)
             setMemories(data.memories || data.items || [])
           } else if (tab === 'jobs') {
@@ -255,7 +262,17 @@ window.__ModuleLoader__.load({
         } finally {
           setLoading(false)
         }
-      }, [tab, base, token, searchTick])
+      }, [tab, base, token, searchTick, namespace])
+
+      const changeNamespace = (value) => {
+        setNamespace(value)
+        try {
+          localStorage.setItem('hippocampus.namespace', value)
+        } catch {
+          // storage may be unavailable; selection still applies in memory
+        }
+        setRefresh((current) => current + 1)
+      }
 
       useEffect(() => { load() }, [load, refresh])
       // Service version/port for the header: /api/public-config is unauthenticated,
@@ -267,6 +284,29 @@ window.__ModuleLoader__.load({
           .catch(() => { if (alive) setServerInfo(null) })
         return () => { alive = false }
       }, [base, token])
+      // Namespace switcher: list what this token may read; "*" is only added when
+      // the server says the caller has wildcard access.
+      useEffect(() => {
+        let alive = true
+        Promise.all([
+          request(base, token, '/api/namespaces').catch(() => null),
+          request(base, token, '/api/auth/check').catch(() => null),
+        ]).then(([data, authData]) => {
+          if (!alive) return
+          if (authData?.auth) setPanelAuth(authData.auth)
+          if (!data) return
+          const items = data.namespaces || []
+          setNamespaceItems(items)
+          const allowed = authData?.auth?.namespaces ?? ['*']
+          const names = items.map((item) => item.name)
+          const unique = [...new Set(allowed.includes('*') ? ['*', ...names] : names)]
+          setNamespaces(unique)
+          setNamespace((current) =>
+            unique.includes(current) ? current : data.default && unique.includes(data.default) ? data.default : unique[0] || 'default',
+          )
+        })
+        return () => { alive = false }
+      }, [base, token, refresh])
       useEffect(() => {
         if (tab !== 'jobs') return undefined
         const timer = setInterval(load, 3000)
@@ -307,7 +347,7 @@ window.__ModuleLoader__.load({
             confidence: Number(editor.confidence) || 0.7,
             tags: String(editor.tags || '').split(',').map((item) => item.trim()).filter(Boolean),
             confirmed: Boolean(editor.confirmed),
-            namespace: editor.namespace || 'default',
+            namespace: editor.namespace || (namespace === '*' ? 'default' : namespace),
           }
           if (editor.id) {
             delete payload.namespace
@@ -391,6 +431,19 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const createNamespace = async () => {
+        const name = nsDraft.trim()
+        if (!name) return setNsNotice('请输入空间名称')
+        try {
+          const data = await request(base, token, '/api/namespaces', { method: 'POST', body: { name } })
+          setNsDraft('')
+          setNsNotice(data.created ? `✔ 已创建 ${name}` : `空间 ${name} 已存在`)
+          setRefresh((value) => value + 1)
+        } catch (err) {
+          setNsNotice(`✖ ${err.message}`)
+        }
+      }
+
       const tabs = [
         ['overview', '总览'],
         ['memories', '记忆库'],
@@ -421,6 +474,14 @@ window.__ModuleLoader__.load({
               },
               `${serverInfo?.version ? 'v' + serverInfo.version + ' · ' : ''}${base.replace(/^https?:\/\//, '')}`,
             ),
+            h('select', {
+              key: 'ns',
+              className: 'hmr-input',
+              style: { maxWidth: 160, flex: '0 1 160px' },
+              title: '记忆空间（namespace）',
+              value: namespace,
+              onChange: (event) => changeNamespace(event.target.value),
+            }, namespaces.map((name) => h('option', { key: name, value: name }, name === '*' ? '全部空间' : name))),
             h('button', { key: 'refresh', className: 'hmr-btn', onClick: () => setRefresh((value) => value + 1) }, '刷新'),
             h('button', { key: 'star', className: 'hmr-btn', onClick: () => window.open(`${base}/#/star`, '_blank', 'noopener') }, '星图'),
             h('button', { key: 'tree', className: 'hmr-btn', onClick: () => window.open(`${base}/#/tree`, '_blank', 'noopener') }, '树'),
@@ -482,7 +543,7 @@ window.__ModuleLoader__.load({
             h('div', { className: 'hmr-toolbar' }, [
               h('input', { className: 'hmr-input', value: query, placeholder: '搜索记忆…', onChange: (event) => setQuery(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter') setRefresh((value) => value + 1) } }),
               h('button', { className: 'hmr-btn', onClick: () => setSearchTick((value) => value + 1) }, '搜索'),
-              h('button', { className: 'hmr-btn primary', onClick: () => setEditor({ content: '', kind: 'episodic', importance: 5, confidence: 0.7, tags: '', confirmed: false, namespace: 'default' }) }, '写入记忆'),
+              h('button', { className: 'hmr-btn primary', onClick: () => setEditor({ content: '', kind: 'episodic', importance: 5, confidence: 0.7, tags: '', confirmed: false, namespace: namespace === '*' ? 'default' : namespace }) }, '写入记忆'),
             ]),
             h('div', { className: 'hmr-split' }, [
               h('div', { className: 'hmr-list', key: 'list' }, memories.length
@@ -563,6 +624,23 @@ window.__ModuleLoader__.load({
                 ['CORS 额外来源', (config.corsOrigins || []).join(', ') || '默认（含 dsh-app: / dsh:）'],
                 ['嵌入', config.embeddings?.enabled ? 'hybrid' : 'off'], ['缓存', `${config.cache?.search?.entries ?? 0} 搜索`],
               ].map(([key, value]) => h('div', { key }, [h('span', { key: 'k' }, key), h('b', { key: 'v', title: String(value) }, String(value ?? '—'))]))) : h('div', { className: 'hmr-empty' }, '加载中'),
+            ]),
+            h('div', { className: 'hmr-card', style: { gridColumn: '1/-1' } }, [
+              h('h2', {}, '命名空间'),
+              h('div', { className: 'hmr-code', style: { marginBottom: 8 } }, `当前：${namespace === '*' ? '全部空间' : namespace} · namespace 是同一数据库内的逻辑分区，切换后列表/检索/总览都会跟随。`),
+              h('div', { className: 'hmr-actions', style: { marginBottom: 8 } }, [
+                panelAuth?.role === 'admin' ? h('input', { key: 'ns', className: 'hmr-input', style: { maxWidth: 220, flex: 'none' }, placeholder: '新空间名称', value: nsDraft, onChange: (event) => setNsDraft(event.target.value) }) : null,
+                panelAuth?.role === 'admin' ? h('button', { key: 'create', className: 'hmr-btn primary', onClick: createNamespace }, '新建空间') : null,
+                h('button', { key: 'manage', className: 'hmr-btn', onClick: () => window.open(`${base}/#/namespaces`, '_blank', 'noopener') }, '在 WebUI 中重命名/合并/删除'),
+              ]),
+              namespaceItems.length
+                ? namespaceItems.map((item) => h('div', { className: 'hmr-row', key: item.name, onClick: () => changeNamespace(item.name) }, [
+                    h('span', { className: 'hmr-tag' }, item.name),
+                    h('span', { className: 'txt' }, `${item.total} 条 · active ${item.active ?? 0} · 冲突 ${item.openConflicts ?? 0}`),
+                    h('span', { className: 'time' }, item.name === namespace ? '当前' : item.name === serverInfo?.defaultNamespace ? '默认' : ''),
+                  ]))
+                : h('div', { className: 'hmr-empty' }, '暂无空间'),
+              nsNotice ? h('div', { className: 'hmr-code', style: { marginTop: 8 } }, nsNotice) : null,
             ]),
             h('div', { className: 'hmr-card', style: { gridColumn: '1/-1' } }, [
               h('h2', {}, '账号安全'),

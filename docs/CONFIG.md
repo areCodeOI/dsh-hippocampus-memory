@@ -110,6 +110,25 @@ dsh-go 的插件详情 →「设置」会直接读取这里的 `Config` schema�
 
 也可以直接改本目录的 `cordis.patch.yml`（本地安装是 link，改动重启 DSH 后生效）。
 
+### 命名空间管理
+
+- 空间是隐式的：写入首条记忆时创建；也可以在 WebUI「记忆空间」页或 CLI 预留空空间。
+- 默认空间由 `namespace` 配置决定；重命名/删除/合并默认空间需要先改配置，或显式 `force=true`。
+- 重命名会同步 API key 的空间白名单和排队任务；历史审计保留旧名称。
+- 空空间名记录在现有 `meta` 表（`namespace_registry`），**没有新增表**，schemaVersion 仍为 3。
+- namespace 是逻辑分区，不是加密/权限边界；硬隔离请用独立 DB 或 PostgreSQL schema。
+
+```bash
+node bin/hippocampus.mjs namespace list
+node bin/hippocampus.mjs namespace create project-kestrel
+node bin/hippocampus.mjs namespace rename project-kestrel project-kepler
+node bin/hippocampus.mjs namespace merge project-kepler default
+node bin/hippocampus.mjs namespace delete project-kepler                    # 7 天冷静期
+node bin/hippocampus.mjs namespace delete project-kepler --hard --confirm    # 永久删除
+```
+
+WebUI 对应页面与 HTTP 接口见 [API.md](API.md#命名空间管理)。
+
 环境变量（MCP / HTTP / CLI）：
 
 | 变量 | 作用 |

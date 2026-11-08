@@ -32,6 +32,9 @@
         <el-menu-item index="tree">
           <el-icon><Connection /></el-icon><span>记忆树</span>
         </el-menu-item>
+        <el-menu-item index="namespaces">
+          <el-icon><Files /></el-icon><span>记忆空间</span>
+        </el-menu-item>
         <el-menu-item index="jobs">
           <el-icon><Timer /></el-icon><span>异步任务</span>
         </el-menu-item>
@@ -110,6 +113,15 @@
           :refresh-key="refreshKey"
           :namespace="namespace"
           @open-memory="openMemory"
+        />
+        <NamespacesView
+          v-else-if="page === 'namespaces'"
+          :refresh-key="refreshKey"
+          :auth="auth"
+          :namespace="namespace"
+          @refresh="bumpRefresh"
+          @namespaces-changed="reloadNamespaces"
+          @namespace-change="changeNamespaceFromView"
         />
         <JobsView
           v-else-if="page === 'jobs'"
@@ -265,6 +277,7 @@ import MemoriesView from './views/MemoriesView.vue'
 import StarView from './views/StarView.vue'
 import TreeView from './views/TreeView.vue'
 import JobsView from './views/JobsView.vue'
+import NamespacesView from './views/NamespacesView.vue'
 import AuditView from './views/AuditView.vue'
 import SettingsView from './views/SettingsView.vue'
 import {
@@ -286,6 +299,7 @@ const PAGE_META = {
   memories: { title: '记忆库', subtitle: '检索、审阅并维护最小事实单元' },
   star: { title: '记忆星图', subtitle: '把记忆、冲突与巩固关系看作一片星空' },
   tree: { title: '记忆树', subtitle: '按 namespace 与记忆层展开的结构视图' },
+  namespaces: { title: '记忆空间', subtitle: '管理 namespace 分区：新建、重命名、合并与删除' },
   jobs: { title: '异步任务', subtitle: '回放、嵌入回填、备份与维护任务' },
   audit: { title: '审计日志', subtitle: '谁在何时以什么角色做了什么' },
   settings: { title: '设置与权限', subtitle: '服务、API key、嵌入与数据管理' },
@@ -407,14 +421,19 @@ async function checkAuth() {
 }
 
 async function loadNamespaces() {
-  let available = ['default']
+  let available = []
   try {
-    const stats = await api('/api/stats', { silent: true })
-    available = Object.keys(stats.byNamespace ?? {})
-    if (!available.length) available = ['default']
+    const data = await api('/api/namespaces', { silent: true })
+    available = (data.namespaces ?? []).map((item) => item.name)
   } catch {
-    // ignore; use permissions below
+    try {
+      const stats = await api('/api/stats', { silent: true })
+      available = Object.keys(stats.byNamespace ?? {})
+    } catch {
+      // ignore; use permissions below
+    }
   }
+  if (!available.length) available = ['default']
   const allowed = auth.value?.namespaces ?? ['*']
   if (allowed.includes('*')) {
     namespaces.value = ['*', ...new Set(['default', namespace.value, ...available])]
@@ -430,6 +449,16 @@ function changeNamespace(value) {
   session.namespace = value
   localStorage.setItem('hippocampus.namespace', value)
   bumpRefresh()
+}
+
+async function reloadNamespaces() {
+  await loadNamespaces()
+  bumpRefresh()
+}
+
+function changeNamespaceFromView(name) {
+  if (!name) return
+  changeNamespace(name)
 }
 
 async function login() {

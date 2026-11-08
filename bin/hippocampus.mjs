@@ -16,6 +16,7 @@ import { TOOL_DEFS, callTool } from '../lib/tools.js'
 import { resolveStorageConfig, storageLabel } from '../lib/paths.js'
 import { createMemoryHttpServer, listen } from '../lib/http.js'
 import { AuthService } from '../lib/auth.js'
+import { listNamespaces, createNamespace, renameNamespace, mergeNamespaces, deleteNamespace } from '../lib/namespaces.js'
 import { nodeExecutable } from '../lib/exec.js'
 
 const { values, positionals } = parseArgs({
@@ -96,6 +97,12 @@ commands:
   user reset-password          重置密码并吊销该用户全部会话：
                                --email x@y.com [--password 新密码]
                                省略 --password 时会生成一次性强密码（只显示一次）
+  namespace list               列出记忆空间（总数/分层/最近写入）
+  namespace create <name>      预留空空间（写入首条记忆也会自动创建）
+  namespace rename <from> <to> 重命名；同步 API key 白名单与排队任务
+  namespace merge <from> <into> 合并；精确重复的 active 记忆会去重
+  namespace delete <name>      默认 7 天软删除；--hard --confirm 永久删除
+                               --force 允许操作配置的默认空间或 persona
   migrate                      复制到一个新存储（--from-db/--from-pg-url → --to-pg-url/--to-db）
   serve-http                   启动 HTTP/MCP 服务（--port 7337）
   serve-mcp                    启动 stdio MCP 服务
@@ -333,6 +340,34 @@ async function main() {
         print(store.importAll(snapshot))
         break
       }
+      case 'namespace': {
+        const sub = rest[0] ?? 'list'
+        if (sub === 'list') {
+          print(listNamespaces(store))
+          break
+        }
+        if (!rest[1]) fail('namespace needs a name: namespace <create|rename|merge|delete> <name>')
+        if (sub === 'create') {
+          print(createNamespace(store, rest[1]))
+          break
+        }
+        if (sub === 'rename') {
+          if (!rest[2]) fail('namespace rename needs <from> <to>')
+          print(renameNamespace(store, rest[1], rest[2], { force: values.force }))
+          break
+        }
+        if (sub === 'merge') {
+          if (!rest[2]) fail('namespace merge needs <from> <into>')
+          print(mergeNamespaces(store, rest[1], rest[2], { force: values.force }))
+          break
+        }
+        if (sub === 'delete') {
+          print(deleteNamespace(store, rest[1], { hard: values.hard, confirm: values.confirm, force: values.force }))
+          break
+        }
+        fail(`unknown namespace command: ${sub}`)
+      }
+
       case 'user': {
         const sub = rest[0] ?? 'list'
         const auth = new AuthService({ db: store.db })

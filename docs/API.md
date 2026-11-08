@@ -40,6 +40,11 @@ HIPPOCAMPUS_TOKEN=change-me node bin/hippocampus-http.mjs --host 0.0.0.0 --port 
 | `POST` | `/api/auth/password` | 修改自己的密码（需会话）：`{currentPassword,newPassword}` |
 | `GET` | `/api/users` | 账号列表（admin；不含密码哈希） |
 | `PATCH` | `/api/users/{id}/password` | 管理员重置密码（admin；吊销该用户全部会话） |
+| `GET` | `/api/namespaces` | 空间列表（reader；按 key 白名单过滤） |
+| `POST` | `/api/namespaces` | 预留空空间（admin） |
+| `PATCH` | `/api/namespaces/{name}` | 重命名空间（admin；同步 key/任务） |
+| `POST` | `/api/namespaces/{name}/merge` | 合并空间（admin；精确重复去重） |
+| `DELETE` | `/api/namespaces/{name}` | 软/硬删除空间（admin；默认空间受保护） |
 | `POST` | `/mcp` | MCP JSON-RPC（见 [MCP.md](MCP.md)） |
 | `GET` | `/metrics` | Prometheus 指标（默认 admin；`?token=` 也可） |
 | `GET` | `/api/tools` | 工具定义列表 |
@@ -95,6 +100,41 @@ Authorization: Bearer hk_...
 ```
 
 `namespaces` 支持 `["*"]` 或具体列表；不在白名单的 namespace 返回 403。
+
+## 命名空间管理
+
+namespace 是同一数据库内的逻辑分区（隐式；没有单独的 `namespaces` 表）。空空间名记录在
+`meta.namespace_registry`，所以可以先预留再写入。`GET` 需要 reader，其余需要 admin。
+
+- `GET /api/namespaces`：每个空间的 total、active/conflict/archived/pendingDelete、
+  byKind、openConflicts、最近写入时间；只返回当前 key 白名单内的空间。
+- `POST /api/namespaces` `{"name":"project-a"}`：预留一个空空间（幂等）。
+- `PATCH /api/namespaces/{name}` `{"to":"project-b"}`：重命名；同步 API key 的空间白名单
+  和排队任务的 payload，历史审计保留旧名称。
+- `POST /api/namespaces/{name}/merge` `{"into":"default"}`：迁移全部记忆；内容完全相同的
+  **active** 记忆会去重合并（标签/实体/重要性/置信度/权重/访问次数取并集或最大值），
+  其余迁移。目标空间不存在时会自动创建。
+- `DELETE /api/namespaces/{name}`：默认软删除（7 天冷静期，与单条记忆一致）；
+  `?hard=true&confirm=true` 永久删除 memories/向量/非运行任务（事件与审计保留）；
+  persona 记忆需要 `&force=true`。
+
+```bash
+TOKEN='...'
+curl -s http://127.0.0.1:7337/api/namespaces -H "Authorization: Bearer $TOKEN"
+curl -s -X POST http://127.0.0.1:7337/api/namespaces \
+  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"name":"project-a"}'
+curl -s -X PATCH http://127.0.0.1:7337/api/namespaces/project-a \
+  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"to":"project-b"}'
+curl -s -X DELETE 'http://127.0.0.1:7337/api/namespaces/project-b?hard=true&confirm=true' \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+配置中的默认 namespace（`config.namespace`，默认 `default`）不能直接重命名/合并/删除；
+请先改配置，或显式传 `force=true`（会提示配置仍指向旧名字）。目标已存在时重命名返回 409，
+请改用 merge。重命名/合并后，请同步修改插件配置里的 `namespace` / `autoRecallNamespace`
+（管理 API 不会改插件配置）。
 
 ## 分页列表
 

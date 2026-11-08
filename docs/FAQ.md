@@ -32,6 +32,11 @@ A：可以。分词对英文按单词、CJK 按二元组；记忆内容建议统
 **Q：Node 版本不够？**
 A：`node:sqlite` 需要 ≥ 22.13（22.5–22.12 需 `--experimental-sqlite`）。低于此版本请升级 Node。
 
+**Q：怎么新建 / 重命名 / 合并 / 删除 namespace？**
+A：WebUI 左侧「记忆空间」页；或 CLI `node bin/hippocampus.mjs namespace list|create|rename|merge|delete`；
+或 HTTP `/api/namespaces`。空间是隐式分区，写入首条记忆也会创建；重命名会同步 API key 白名单与排队任务；
+删除默认是 7 天冷静期，`--hard --confirm` 才永久删除。默认空间受配置保护。详见 [API.md](API.md#命名空间管理)。
+
 <a id="reset"></a>
 ## 忘记密码 / 重置密码
 

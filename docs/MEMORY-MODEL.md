@@ -343,7 +343,7 @@ CREATE TABLE embedding_index (
 - **不做「语义向量」**：零依赖优先；检索用 FTS5 + 词法相似 + 权重/近因。需要时可加 embedding 重排，不影响存储。
 - **巩固不调用 LLM**：保证离线、确定、可测试；生成的是「待验证」的抽取式总结。
 - **冲突检测是启发式**：只处理极性、数值、否定（含分句级否定）几类高置信信号；「住在北京 vs 住在上海」这类槽位值冲突仍需调用方显式 `supersedes`。
-- **多 namespace**：为多 agent / 多项目隔离预留，默认 `default`。
+- **多 namespace**：为多 agent / 多项目隔离的逻辑分区，默认 `default`。空空间名记录在现有 `meta.namespace_registry`（不新增表）；支持列表、新建、重命名、合并、软/硬删除，详见 [API.md](API.md#命名空间管理)。
 
 ---
 

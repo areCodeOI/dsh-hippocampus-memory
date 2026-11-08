@@ -106,6 +106,8 @@ DSH NEXT / dsh-go 的面板页面不来自 `http://127.0.0.1:7337`，而是自�
 
 - `namespaces` 是 key 的白名单；`["*"]` 表示全部。
 - 指定 namespace 的读写会检查；不指定时使用 key 的第一个允许 namespace（`*` key 用默认 namespace）。
+- **namespace 不是加密/隔离边界**：同一 DB、同一进程内可跨空间读取（admin/本地）；它只用于逻辑分区与 key 授权。硬隔离请用独立 DB / PostgreSQL schema / OS 权限。
+- **namespace 管理是 admin 操作**：重命名/合并/删除会批量改写 memories，全部写审计；配置的默认空间受保护，需要先改配置或显式 `force=true`。
 - MCP over HTTP 的工具调用同样走角色检查；`memory://` 资源只对 wildcard namespace 的 reader/admin 开放。
 - 冲突列表、导出按 namespace 过滤；统计/监控是全局聚合，可能暴露数量级信息，敏感部署建议只发 reader `*` key。
 
