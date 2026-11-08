@@ -5,6 +5,7 @@ import path from 'node:path'
 import { afterEach, test } from 'node:test'
 import { MemoryStore } from '../lib/store.js'
 import { createMemoryHttpServer, listen } from '../lib/http.js'
+import { VERSION } from '../lib/constants.js'
 
 const cleanups = []
 
@@ -65,7 +66,7 @@ test('v2 HTTP: UI assets, graph, tree, monitor, metrics and cache', async () => 
   const metricsText = await metrics.text()
   assert.equal(metrics.status, 200)
   assert.match(metricsText, /hippocampus_memories_total/)
-  assert.match(metricsText, /hippocampus_info\{version="0\.2\.0"\}/)
+  assert.ok(metricsText.includes(`hippocampus_info{version="${VERSION}"}`))
 
   const search = await jsonFetch(base, '/api/memories/search?q=花生')
   assert.equal(search.data.count, 1)
