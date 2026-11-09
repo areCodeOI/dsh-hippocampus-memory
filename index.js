@@ -13,6 +13,7 @@ import { resolveStorageConfig } from './lib/paths.js'
 import { VERSION } from './lib/constants.js'
 import { EmbeddingService } from './lib/embeddings.js'
 import { appendAutoRecall, extractUserText, shouldAutoRecall } from './lib/auto-recall.js'
+import { captureUserMessage } from './lib/auto-capture.js'
 import { registerDshGoUi } from './lib/dsh-go-ui.js'
 import { createWebUiService } from './lib/webui.js'
 import { vectorWeightFromEnv } from './lib/scoring.js'
@@ -27,6 +28,17 @@ export const Config = Schema
       httpPort: Schema.natural().min(1).max(65535).default(7337).description('WebUI/REST 端口'),
       namespace: Schema.string().default('default').description('默认记忆空间，用于隔离不同项目/agent'),
       autoRecall: Schema.boolean().default(true).description('每轮对话前自动召回相关记忆'),
+      autoCapture: Schema.boolean()
+        .default(false)
+        .description('实验性：从用户消息中用本地规则自动捕获少量稳定事实（不调用模型、不存全文、默认关闭）'),
+      autoCaptureNamespace: Schema.string()
+        .default('')
+        .description('自动捕获写入的空间；留空用默认 namespace，不支持 *'),
+      autoCaptureMaxPerTurn: Schema.natural()
+        .min(1)
+        .max(5)
+        .default(2)
+        .description('每条用户消息最多自动捕获几条候选记忆'),
       injectPrompt: Schema.boolean().default(true).description('向系统提示词注入记忆使用规范'),
       autoReplay: Schema.boolean().default(true).description('后台自动回放/衰减/巩固'),
       retrievalLimit: Schema.natural().min(1).max(50).default(5).description('memory_search 默认返回条数'),
@@ -188,55 +200,78 @@ export function apply(ctx, config = {}) {
     'hippocampus: tool memory_webui',
   )
 
-  if (config.autoRecall !== false) {
-    ctx.on('agent/pre-step', async ({ messages }, next) => {
+  if (config.autoRecall !== false || config.autoCapture === true) {
+    const captureSeen = new Map()
+    ctx.on('agent/pre-step', async ({ messages, agent, step }, next) => {
       const decision = await next()
       if (decision.kind !== 'enter' || !Array.isArray(messages) || messages.length === 0) return decision
+      let finalDecision = decision
       const text = extractUserText(messages)
-      if (!shouldAutoRecall(text)) return decision
-      try {
-        // store.search rejects queries over 1000 chars; long user messages must
-        // still be recallable instead of silently failing the whole step.
-        const query = text.length > 1000 ? text.slice(0, 1000) : text
-        const recallNamespace = config.autoRecallNamespace || store.namespace
-        if (recallNamespace !== '*') {
-          const policy = store.namespacePolicy(recallNamespace)
-          if (policy.archived || policy.autoRecall === false) return decision
-        }
-        const result = store.search(query, {
-          limit: Math.min(8, Math.max(1, Number(config.autoRecallLimit) || 4)),
-          namespace: recallNamespace,
-          mode: 'relevance',
-          // Injecting context is a background read, not a user access: it must
-          // not refresh last_access_at and keep decaying memories alive.
-          updateAccess: false,
-        })
-        const minScore = Math.max(0, Number(config.autoRecallMinScore) || 0.18)
-        const memories = (result.memories ?? []).filter((memory) => {
-          if ((memory.score ?? 0) < minScore) return false
-          if (recallNamespace !== '*') return true
-          const policy = store.namespacePolicy(memory.namespace)
-          return !policy.archived && policy.autoRecall !== false
-        })
-        if (memories.length > 0) {
-          // Visible usage record for the panel / memory_stats. Only count an
-          // actual injection, so idle turns do not write to the database.
-          try {
-            store.recordAutoRecall({
-              count: memories.length,
-              chars: memories.reduce((total, memory) => total + String(memory.content ?? '').length, 0),
-            })
-          } catch {
-            // usage counters must never break recall
+      if (config.autoRecall !== false && shouldAutoRecall(text)) {
+        try {
+          // store.search rejects queries over 1000 chars; long user messages must
+          // still be recallable instead of silently failing the whole step.
+          const query = text.length > 1000 ? text.slice(0, 1000) : text
+          const recallNamespace = config.autoRecallNamespace || store.namespace
+          let recallAllowed = true
+          if (recallNamespace !== '*') {
+            const policy = store.namespacePolicy(recallNamespace)
+            recallAllowed = !policy.archived && policy.autoRecall !== false
           }
+          if (recallAllowed) {
+            const result = store.search(query, {
+              limit: Math.min(8, Math.max(1, Number(config.autoRecallLimit) || 4)),
+              namespace: recallNamespace,
+              mode: 'relevance',
+              // Injecting context is a background read, not a user access: it must
+              // not refresh last_access_at and keep decaying memories alive.
+              updateAccess: false,
+            })
+            const minScore = Math.max(0, Number(config.autoRecallMinScore) || 0.18)
+            const memories = (result.memories ?? []).filter((memory) => {
+              if ((memory.score ?? 0) < minScore) return false
+              if (recallNamespace !== '*') return true
+              const policy = store.namespacePolicy(memory.namespace)
+              return !policy.archived && policy.autoRecall !== false
+            })
+            if (memories.length > 0) {
+              // Visible usage record for the panel / memory_stats. Only count an
+              // actual injection, so idle turns do not write to the database.
+              try {
+                store.recordAutoRecall({
+                  count: memories.length,
+                  chars: memories.reduce((total, memory) => total + String(memory.content ?? '').length, 0),
+                })
+              } catch {
+                // usage counters must never break recall
+              }
+            }
+            finalDecision = appendAutoRecall(decision, memories, {
+              maxChars: Math.min(4000, Math.max(400, Number(config.autoRecallMaxChars) || 1200)),
+            })
+          }
+        } catch (error) {
+          console.warn('[hippocampus] auto recall failed:', error instanceof Error ? error.message : String(error))
         }
-        return appendAutoRecall(decision, memories, {
-          maxChars: Math.min(4000, Math.max(400, Number(config.autoRecallMaxChars) || 1200)),
-        })
-      } catch (error) {
-        console.warn('[hippocampus] auto recall failed:', error instanceof Error ? error.message : String(error))
-        return decision
       }
+      if (config.autoCapture === true) {
+        try {
+          const captured = captureUserMessage(store, messages, {
+            namespace: config.autoCaptureNamespace || '',
+            limit: Math.min(5, Math.max(1, Number(config.autoCaptureMaxPerTurn) || 2)),
+            sourceSession: agent?.id ?? null,
+            step,
+            seen: captureSeen,
+          })
+          if (captured.captured > 0) {
+            // Count only; never print captured content or secrets.
+            console.info(`[hippocampus] auto-captured ${captured.captured} candidate(s)`)
+          }
+        } catch (error) {
+          console.warn('[hippocampus] auto capture failed:', error instanceof Error ? error.message : String(error))
+        }
+      }
+      return finalDecision
     })
   }
 

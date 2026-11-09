@@ -2,6 +2,25 @@
 
 本项目遵循语义化版本；数据库 schema 变更会单独标注。
 
+## 0.5.0 — 2026-11-09
+
+### Added
+
+- **opt-in 自动捕获**：`autoCapture:true` 时在 DSH `agent/pre-step` 用本地确定性规则从最新用户消息抽取少量明确事实（“记住/以后/不要/我喜欢/项目使用/部署在”等），写入 `episodic`、`confirmed:false`，标签 `auto-capture`。
+- 自动捕获不调用模型、不保存整段对话；每条消息最多 `autoCaptureMaxPerTurn` 条；跳过 slash 命令、代码块、问句和含密码/token/身份证等敏感词的整条消息。
+- 可配置 `autoCaptureNamespace`、`autoCaptureMaxPerTurn`；自动捕获遵守 namespace 只读/归档策略，不自动写 `persona`。
+- 统计与可观测性：`memory_stats` 增加 `autoCapture` 计数，WebUI 总览显示自动召回/自动捕获次数与条数；捕获记忆可按 `auto-capture` 标签审阅、提升或删除。
+
+### Changed
+
+- DSH 插件 pre-step 合并为单监听器，自动召回与自动捕获可独立开关；`autoRecall:false` 不影响自动捕获。
+- 版本号 0.4.0 → 0.5.0；WebUI 资产重建。
+
+### Tests
+
+- 单元/集成：112/112。
+- 新增 auto-capture 纯规则、去重、只读空间、敏感词和插件 opt-in 测试。
+
 ## 0.4.0 — 2026-11-09
 
 ### Added

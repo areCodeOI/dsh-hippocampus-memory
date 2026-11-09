@@ -53,6 +53,8 @@
             <div><span>图谱缓存</span><b>{{ monitor.cache?.graph?.entries ?? 0 }} 条</b></div>
             <div><span>嵌入</span><b>{{ monitor.embeddings?.enabled ? `${monitor.embeddings.providers.length} providers` : '未启用' }}</b></div>
             <div><span>队列</span><b>{{ monitor.jobs?.byStatus?.queued ?? 0 }} queued · {{ monitor.jobs?.running ?? 0 }} running</b></div>
+            <div><span>自动召回</span><b>{{ stats.autoRecall?.count ?? 0 }} 次 · {{ stats.autoRecall?.hits ?? 0 }} 条</b></div>
+            <div><span>自动捕获</span><b>{{ stats.autoCapture?.count ?? 0 }} 次 · {{ stats.autoCapture?.hits ?? 0 }} 条</b></div>
             <div><span>速率限制</span><b>{{ monitor.rateLimiter?.limit ?? '—' }} / {{ Math.round((monitor.rateLimiter?.windowMs ?? 60000) / 1000) }}s</b></div>
             <div><span>上次回放</span><b>{{ stats.lastReplayAt ? ago(stats.lastReplayAt) : '从未' }}</b></div>
           </div>

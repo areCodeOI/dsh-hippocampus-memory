@@ -176,6 +176,63 @@ test('plugin: auto-recall honors a namespace autoRecall=false policy', async () 
   assert.equal(decision.messages.length, 1)
 })
 
+test('plugin: auto-capture is opt-in, captures explicit facts once, and skips secrets', async () => {
+  const { ctx, handlers } = fakeContext()
+  const dbPath = tempDb()
+  apply(ctx, { dbPath, autoReplay: false, injectPrompt: false, autoRecall: false, autoCapture: true })
+  const handler = handlers.get('agent/pre-step')
+  assert.equal(typeof handler, 'function')
+
+  const user = {
+    id: 'u-capture',
+    role: 'user',
+    source: { kind: 'user' },
+    content: [{ type: 'text', text: '记住：我的项目使用 PostgreSQL。以后不要用 npm，统一用 pnpm。' }],
+  }
+  const decision = await handler(
+    { messages: [user], step: 1, agent: { id: 'agent-capture' } },
+    async () => ({ kind: 'enter', messages: [user] }),
+  )
+  assert.equal(decision.kind, 'enter')
+
+  const db = new DatabaseSync(dbPath)
+  const rows = db.prepare("SELECT content, source, tags FROM memories ORDER BY created_at").all()
+  db.close()
+  assert.ok(rows.length >= 1)
+  assert.ok(rows.every((row) => row.source === 'hippocampus-auto-capture'))
+  assert.ok(rows.every((row) => row.tags.includes('auto-capture')))
+
+  // Same pre-step is replayed for retries/tool continuations: do not duplicate.
+  const before = rows.length
+  await handler(
+    { messages: [user], step: 2, agent: { id: 'agent-capture' } },
+    async () => ({ kind: 'enter', messages: [user] }),
+  )
+  let check = new DatabaseSync(dbPath)
+  assert.equal(check.prepare('SELECT COUNT(*) AS n FROM memories').get().n, before)
+  check.close()
+
+  const secret = {
+    id: 'u-secret',
+    role: 'user',
+    source: { kind: 'user' },
+    content: [{ type: 'text', text: '记住：我的密码是 hunter2。' }],
+  }
+  await handler(
+    { messages: [secret], step: 3, agent: { id: 'agent-capture' } },
+    async () => ({ kind: 'enter', messages: [secret] }),
+  )
+  check = new DatabaseSync(dbPath)
+  assert.equal(check.prepare('SELECT COUNT(*) AS n FROM memories').get().n, before)
+  check.close()
+})
+
+test('plugin: auto-capture stays off by default', () => {
+  const { ctx, handlers } = fakeContext()
+  apply(ctx, { dbPath: tempDb(), autoReplay: false, injectPrompt: false, autoRecall: false })
+  assert.equal(handlers.get('agent/pre-step'), undefined)
+})
+
 test('plugin: can disable prompt injection while keeping the tools', () => {
   const { ctx, tools, sections } = fakeContext()
   apply(ctx, { dbPath: tempDb(), autoReplay: false, injectPrompt: false })

@@ -108,6 +108,7 @@ DSH NEXT / dsh-go 的面板页面不来自 `http://127.0.0.1:7337`，而是自�
 - 指定 namespace 的读写会检查；不指定时使用 key 的第一个允许 namespace（`*` key 用默认 namespace）。
 - **namespace 不是加密/隔离边界**：同一 DB、同一进程内可跨空间读取（admin/本地）；它只用于逻辑分区与 key 授权。硬隔离请用独立 DB / PostgreSQL schema / OS 权限。
 - **namespace 管理是 admin 操作**：重命名/合并/删除会批量改写 memories，全部写审计；配置的默认空间受保护，需要先改配置或显式 `force=true`。
+- **自动捕获默认关闭**：开启后只处理最新用户消息，使用本地规则、不调用模型、不保存全文；含密码/token/身份证/银行卡等敏感词的整条消息跳过，写入 `episodic` 且 `confirmed:false`、打 `auto-capture` 标签，便于审阅和删除；不会绕过 namespace 只读/归档策略。
 - **危险空间操作自动备份**：rename/merge/delete 默认先写 JSON 快照（记忆/冲突/空间元数据，不含用户/密钥），文件权限 600；备份失败则中止。恢复默认 dry-run，执行前再备份当前状态；备份/恢复 API 仅限带 `*` 白名单的 admin，受限 admin key 一律 403。恢复期间有 queued/running 任务会拒绝。
 - **只读/归档策略**：`readOnly`/`archived` 空间拒绝新的记忆写入（存储层强制），但管理员仍可修改策略或重命名/合并/删除。
 - **后台任务**：`?async=1` 的空间操作写入 `jobs`，payload 只含空间名/标志，不含记忆内容。

@@ -18,6 +18,7 @@
 - **四种接入方式共用一份数据**：DSH 插件、MCP 进程、HTTP 进程可以同时读写同一个 WAL 数据库（跨机器时共享 PostgreSQL）。
 - **可迁移**：`export` / `import` JSON 快照，换机器、备份、审计都方便。
 - **自动召回**：DSH `agent/pre-step` 在每轮用户输入后自动检索相关记忆，并注入带来源标记的上下文；不再依赖模型主动想起调用 `memory_search`。
+- **自动捕获（实验性，默认关闭）**：`autoCapture:true` 时用本地规则从最新用户消息抽取少量明确事实，以 `episodic`、`confirmed:false` 写入并打 `auto-capture` 标签；不调用模型、不存全文，跳过敏感词；可逐空间只读/归档策略约束。
 - **可水平扩容**：`storage: postgres` + 共享 PostgreSQL；`SKIP LOCKED` 任务队列、跨进程回放租约、数据库级 `change_seq`；pgvector 精确向量检索失败时自动回退 SimHash。
 - **默认零第三方依赖**：SQLite 模式没有 native addon、没有云服务；只有启用 PostgreSQL 时才需要纯 JS 的 `pg` 包。
 

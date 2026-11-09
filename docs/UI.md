@@ -54,6 +54,7 @@ node bin/hippocampus-http.mjs --host 127.0.0.1 --port 7337
 - 层过滤：人格 / 语义 / 情景 / 缓冲。
 - 点击行打开右侧详情：内容、层、状态、重要性/权重、置信度、访问次数、namespace、来源会话、标签、metadata、冲突、ID。
 - 写入/编辑弹窗支持设置层、重要性、置信度、标签、confirmed、namespace。
+- 开启 `autoCapture` 后，自动捕获的记忆会以 `episodic`、`confirmed:false`、标签 `auto-capture` 出现，可在记忆库按标签筛选、审阅、提升或删除。
 - 删除：默认进入 7 天冷静期；admin 可永久删除；人格记忆自动带 `force`。
 - 所有写操作都会刷新页面并记录审计。
 

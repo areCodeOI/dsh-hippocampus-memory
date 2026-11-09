@@ -68,6 +68,9 @@ node bin/hippocampus.mjs import backup.json
         autoRecallMaxChars: 1200
         autoRecallMinScore: 0.18
         autoRecallNamespace: ''    # 空 = 当前 namespace；* = 全部
+        autoCapture: false         # 实验性：本地规则自动捕获用户明确陈述的少量稳定事实
+        autoCaptureNamespace: ''   # 空 = 默认 namespace；不支持 *
+        autoCaptureMaxPerTurn: 2   # 每条用户消息最多捕获几条候选
         namespace: default         # 默认记忆空间
         injectPrompt: true         # 是否注入记忆使用规范
         autoReplay: true           # 后台自动回放
@@ -95,8 +98,16 @@ node bin/hippocampus.mjs import backup.json
   `git clean`/重装目录时丢失记忆。插件启动日志会打印实际 `dbPath`。
 
 dsh-go 的插件详情 →「设置」会直接读取这里的 `Config` schema，可改
-`httpEnabled`、`httpPort`、`namespace`、`autoRecall`、`injectPrompt`、
+`httpEnabled`、`httpPort`、`namespace`、`autoRecall`、`autoCapture`、`injectPrompt`、
 `autoReplay`、`retrievalLimit`；保存后按 App 提示重启/生效。
+
+### 自动捕获（实验性，默认关闭）
+
+`autoCapture: true` 时，插件在 `agent/pre-step` 用**本地确定性规则**从最新一条用户消息中抽取少量
+明确陈述（例如“记住/以后/不要/我喜欢/项目使用/部署在”），以 `episodic`、`confirmed:false` 写入，
+标签 `auto-capture`，不调用模型、不保存整段对话。每轮最多 `autoCaptureMaxPerTurn` 条；跳过 slash 命令、
+代码块、问题和含密码/token/身份证等敏感词的整条消息。首次使用建议先观察标签为 `auto-capture` 的记忆，
+确认噪声可接受后再长期开启。该功能不会自动写入 `persona`，也不会绕过 namespace 的只读/归档策略。
 
 要覆盖配置，不要改 profile 的 `package.json`；在 `$DSH_PROFILE_DIR/cordis.patch.yml` 末尾加一个同 id 的覆盖行即可（Loader 会用完整 `config` 替换原行）：
 
