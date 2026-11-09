@@ -1,6 +1,6 @@
 {
   "name": "dsh-hippocampus-memory",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "海马体长期记忆：四层 CLS 记忆 + SQLite/PostgreSQL(pgvector) 存储 + REST/MCP + Vue3 WebUI 星图/树 + DSH 侧边栏管理面板 + 权限/审计/嵌入/任务/监控",
   "type": "module",
   "main": "index.js",
@@ -13,9 +13,9 @@
     "./client": "./client.js"
   },
   "bin": {
-    "hippocampus": "./bin/hippocampus.mjs",
-    "hippocampus-mcp": "./bin/hippocampus-mcp.mjs",
-    "hippocampus-http": "./bin/hippocampus-http.mjs"
+    "hippocampus": "bin/hippocampus.mjs",
+    "hippocampus-mcp": "bin/hippocampus-mcp.mjs",
+    "hippocampus-http": "bin/hippocampus-http.mjs"
   },
   "files": [
     "index.js",

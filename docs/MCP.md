@@ -142,7 +142,7 @@ Content-Type: application/json
 响应（每条一行，已格式化便于阅读）：
 
 ```json
-{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":false},"resources":{"listChanged":false,"subscribe":false},"prompts":{"listChanged":false}},"serverInfo":{"name":"hippocampus-memory","title":"Hippocampus Memory","version":"0.6.0"},"instructions":"## 海马体长期记忆…"}}
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":false},"resources":{"listChanged":false,"subscribe":false},"prompts":{"listChanged":false}},"serverInfo":{"name":"hippocampus-memory","title":"Hippocampus Memory","version":"0.6.1"},"instructions":"## 海马体长期记忆…"}}
 
 {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"{…}"}],"structuredContent":{"action":"created","memory":{"id":"mem_…","kind":"semantic","content":"项目 Kestrel 的生产服务器是 10.0.0.7。","importance":8,"status":"active","weight":8.0,…},"message":"已写入一条新记忆。"},"isError":false}}
 
