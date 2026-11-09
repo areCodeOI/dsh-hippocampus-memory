@@ -20,6 +20,14 @@
         <el-option label="待确认" value="conflict" />
         <el-option label="全部状态" value="all" />
       </el-select>
+      <el-input
+        v-model="tagFilter"
+        class="hm-filter"
+        placeholder="标签，如 auto-capture"
+        clearable
+        @keyup.enter="search"
+        @clear="search"
+      />
       <el-button v-if="canWrite" type="primary" @click="$emit('create')">
         <el-icon><Plus /></el-icon>写入记忆
       </el-button>
@@ -90,6 +98,7 @@ const loading = ref(true)
 const query = ref('')
 const kind = ref('')
 const status = ref('active')
+const tagFilter = ref('')
 const items = ref([])
 const total = ref(0)
 const offset = ref(0)
@@ -102,6 +111,7 @@ async function load() {
     if (query.value.trim()) {
       const params = new URLSearchParams({ q: query.value.trim(), limit: '50', namespace: props.namespace })
       if (kind.value) params.set('kinds', kind.value)
+      if (tagFilter.value.trim()) params.set('tags', tagFilter.value.trim())
       if (status.value === 'archived' || status.value === 'all') params.set('includeArchived', 'true')
       if (status.value === 'conflict' || status.value === 'all') params.set('includePending', 'true')
       const data = await api(`/api/memories/search?${params}`)
@@ -118,6 +128,7 @@ async function load() {
         namespace: props.namespace,
       })
       if (kind.value) params.set('kinds', kind.value)
+      if (tagFilter.value.trim()) params.set('tags', tagFilter.value.trim())
       const data = await api(`/api/memories?${params}`)
       items.value = data.items
       total.value = data.total

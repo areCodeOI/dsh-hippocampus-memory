@@ -1,6 +1,6 @@
 # 海马体长期记忆 · dsh-hippocampus-memory
 
-> 当前版本：**v0.5.0** · 更新日志：[CHANGELOG.md](CHANGELOG.md)
+> 当前版本：**v0.5.1** · 更新日志：[CHANGELOG.md](CHANGELOG.md)
 
 给 AI 的**跨会话长期记忆**：记住你的稳定偏好、禁忌、项目配置和踩坑结论，下次新对话还能想起来。数据默认存在你本机的 SQLite 里，不上传云端。
 

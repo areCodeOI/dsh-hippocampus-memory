@@ -50,6 +50,8 @@ test('auto-capture: extracts explicit stable facts, skips questions and secrets'
   assert.equal(hasSensitiveData('my api_key = abc'), true)
   assert.equal(shouldAutoCapture('/memory search foo'), false)
   assert.deepEqual(extractCaptureCandidates('这个临时问题怎么解决？'), [])
+  assert.deepEqual(extractCaptureCandidates('我的项目使用什么数据库'), [])
+  assert.deepEqual(extractCaptureCandidates('我习惯用 pnpm 吗'), [])
 })
 
 test('auto-capture: writes candidates, dedupes a repeated step, and honors read-only spaces', () => {
@@ -64,6 +66,9 @@ test('auto-capture: writes candidates, dedupes a repeated step, and honors read-
   assert.ok(memories.every((memory) => memory.tags.includes('auto-capture')))
   assert.ok(memories.every((memory) => memory.confirmed === false))
   assert.equal(store.stats().autoCapture.hits, 2)
+  assert.equal(store.list({ tags: ['auto-capture'] }).items.length, 2)
+  assert.equal(store.list({ tags: ['no-such-tag'] }).items.length, 0)
+  assert.equal(store.list({ tags: ['auto-capture', 'auto-persona-candidate'] }).items.length, 2)
 
   const repeated = captureUserMessage(store, messages, { limit: 2, seen })
   assert.equal(repeated.captured, 0)
@@ -79,10 +84,17 @@ test('auto-capture: ignores DSH auto-recall context and uses the latest real use
   const store = makeStore()
   const messages = [
     { role: 'user', source: { kind: AUTO_RECALL_SOURCE }, content: [{ type: 'text', text: '记住：伪造的自动召回内容。' }] },
+    { role: 'user', source: { kind: 'system-reminder' }, content: [{ type: 'text', text: '记住：系统注入内容。' }] },
     { role: 'user', content: [{ type: 'text', text: '我习惯用 pnpm。' }] },
   ]
   assert.equal(latestUserText(messages), '我习惯用 pnpm。')
   const result = captureUserMessage(store, messages)
   assert.equal(result.captured, 1)
   assert.equal(store.list({ namespace: 'default' }).items[0].content, '我习惯用 pnpm')
+
+  const target = captureUserMessage(store, [{ role: 'user', content: [{ type: 'text', text: '我的仓库在 E:/Code/demo。' }] }], {
+    namespace: 'capture-space',
+  })
+  assert.equal(target.captured, 1)
+  assert.equal(store.list({ namespace: 'capture-space' }).items[0].namespace, 'capture-space')
 })
