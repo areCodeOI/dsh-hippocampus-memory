@@ -2,6 +2,29 @@
 
 本项目遵循语义化版本；数据库 schema 变更会单独标注。
 
+## 0.6.0 — 2026-11-09
+
+### Added
+
+- **LLM 抽取（可选）**：`autoCaptureLlm:true` + OpenAI 兼容 endpoint/model 时，优先用 LLM 从用户消息抽取候选；超时/失败自动回退本地规则。API key 建议用 `HIPPOCAMPUS_LLM_API_KEY`。
+- **助手结论 / 工具结果捕获**：`autoCaptureAssistant` / `autoCaptureToolResults`（默认开）可从 pre-step 消息中的助手结论和工具成功/失败行提取候选。
+- **待审阅队列**：自动捕获写入 `review:'pending'`，不再参与自动召回；WebUI「捕获审阅」页可批准为语义/人格/情景，或忽略归档。
+- **WebUI 配置**：设置页新增自动捕获开关、目标空间、每消息上限、助手/工具开关；写入 DB 覆盖插件默认值，无需重启。
+- **更强 DLP**：新增手机号、邮箱、身份证/护照、银行卡、住址等 PII 跳过；敏感内容整条不捕获。
+- **多实例去重**：捕获写入使用跨进程 `leases` 锁，同一消息并发时只有一个实例写入；store 去重继续兜底。
+- API：`GET/PATCH /api/capture/settings`、`GET /api/captures`、`POST /api/captures/{id}/approve|reject`。
+
+### Changed
+
+- 自动捕获候选不再默认进入自动召回，必须人工批准；批准后按 semantic/persona/episodic 保存。
+- `memory_stats.autoCapture` 增加 `pending` 计数；WebUI 总览显示自动捕获次数/条数。
+- 版本号 0.5.1 → 0.6.0；WebUI 资产重建。
+
+### Tests
+
+- 单元/集成：115/115（新增 LLM 解析/HTTP mock、助手/工具来源、审阅队列、设置、HTTP 路由测试）。
+- WebUI Vitest：2/2（新增捕获审阅页）；Playwright E2E：通过。
+
 ## 0.5.1 — 2026-11-09
 
 ### Fixed

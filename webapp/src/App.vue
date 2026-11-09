@@ -13,7 +13,7 @@
           <strong>海马体记忆</strong>
           <span>HIPPOCAMPUS</span>
         </div>
-        <span class="hm-version">v0.5.1</span>
+        <span class="hm-version">v0.6.0</span>
         <button class="hm-sidebar-close" type="button" aria-label="关闭导航" :tabindex="mobileOpen ? 0 : -1" @click="closeSidebar">
           <el-icon><Close /></el-icon>
         </button>
@@ -34,6 +34,9 @@
         </el-menu-item>
         <el-menu-item index="namespaces">
           <el-icon><Files /></el-icon><span>记忆空间</span>
+        </el-menu-item>
+        <el-menu-item index="captures">
+          <el-icon><Tickets /></el-icon><span>捕获审阅</span>
         </el-menu-item>
         <el-menu-item index="jobs">
           <el-icon><Timer /></el-icon><span>异步任务</span>
@@ -122,6 +125,12 @@
           @refresh="bumpRefresh"
           @namespaces-changed="reloadNamespaces"
           @namespace-change="changeNamespaceFromView"
+        />
+        <CapturesView
+          v-else-if="page === 'captures'"
+          :refresh-key="refreshKey"
+          :auth="auth"
+          @refresh="bumpRefresh"
         />
         <JobsView
           v-else-if="page === 'jobs'"
@@ -278,6 +287,7 @@ import StarView from './views/StarView.vue'
 import TreeView from './views/TreeView.vue'
 import JobsView from './views/JobsView.vue'
 import NamespacesView from './views/NamespacesView.vue'
+import CapturesView from './views/CapturesView.vue'
 import AuditView from './views/AuditView.vue'
 import SettingsView from './views/SettingsView.vue'
 import {
@@ -300,6 +310,7 @@ const PAGE_META = {
   star: { title: '记忆星图', subtitle: '把记忆、冲突与巩固关系看作一片星空' },
   tree: { title: '记忆树', subtitle: '按 namespace 与记忆层展开的结构视图' },
   namespaces: { title: '记忆空间', subtitle: '管理 namespace 分区：新建、重命名、合并与删除' },
+  captures: { title: '捕获审阅', subtitle: '批准或忽略自动捕获的候选记忆' },
   jobs: { title: '异步任务', subtitle: '回放、嵌入回填、备份与维护任务' },
   audit: { title: '审计日志', subtitle: '谁在何时以什么角色做了什么' },
   settings: { title: '设置与权限', subtitle: '服务、API key、嵌入与数据管理' },

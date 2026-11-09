@@ -49,6 +49,11 @@ HIPPOCAMPUS_TOKEN=change-me node bin/hippocampus-http.mjs --host 0.0.0.0 --port 
 | `POST` | `/api/backups` | 立即备份（admin） |
 | `POST` | `/api/backups/{name}/restore` | 恢复快照；默认 dry-run，`confirm=true` 执行（admin） |
 | `DELETE` | `/api/backups/{name}` | 删除备份（admin） |
+| `GET` | `/api/captures` | 待审阅的自动捕获（admin；按空间过滤） |
+| `POST` | `/api/captures/{id}/approve` | 批准为 semantic/persona/episodic（admin） |
+| `POST` | `/api/captures/{id}/reject` | 忽略并归档（admin） |
+| `GET` | `/api/capture/settings` | 自动捕获运行时设置（admin） |
+| `PATCH` | `/api/capture/settings` | 更新开关/空间/上限/助手/工具（admin） |
 | `POST` | `/mcp` | MCP JSON-RPC（见 [MCP.md](MCP.md)） |
 | `GET` | `/metrics` | Prometheus 指标（默认 admin；`?token=` 也可） |
 | `GET` | `/api/tools` | 工具定义列表 |
@@ -145,6 +150,13 @@ curl -s -X DELETE 'http://127.0.0.1:7337/api/namespaces/project-b?hard=true&conf
 请先改配置，或显式传 `force=true`（会提示配置仍指向旧名字）。目标已存在时重命名返回 409，
 请改用 merge。重命名/合并后，请同步修改插件配置里的 `namespace` / `autoRecallNamespace`
 （管理 API 不会改插件配置）。
+
+### 自动捕获审阅
+
+自动捕获的候选先以 `episodic`、`confirmed:false`、`metadata.autoCapture.review='pending'` 写入，不参与自动召回。
+`GET /api/captures` 返回待审阅项；`approve` 可指定 `kind=semantic|persona|episodic`；`reject` 归档。
+`GET/PATCH /api/capture/settings` 控制 enabled/namespace/maxPerTurn/assistant/tools；LLM endpoint/model 由插件配置控制。
+所有接口需要 admin；受限 admin 只能审阅自己空间内的捕获。
 
 ### 备份与恢复
 

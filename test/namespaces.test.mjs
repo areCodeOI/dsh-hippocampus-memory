@@ -185,6 +185,63 @@ test('namespaces HTTP: metadata, backup API, async queue and memory_namespace to
   assert.ok(jobs.data.items.some((item) => item.id === queued.data.job.id))
 })
 
+test('captures HTTP: review queue and live settings', async () => {
+  const { store, auth } = makeStore()
+  const base = await startServer(store)
+  const registered = auth.registerAdmin({ email: 'capture@example.com', password: 'correct horse battery' })
+  const admin = { authorization: `Bearer ${registered.token}`, 'content-type': 'application/json' }
+
+  const settings = await jsonFetch(base, '/api/capture/settings', { headers: admin })
+  assert.equal(settings.status, 200)
+  assert.equal(settings.data.settings.enabled, false)
+
+  const patched = await jsonFetch(base, '/api/capture/settings', {
+    method: 'PATCH',
+    headers: admin,
+    body: JSON.stringify({ enabled: true, maxPerTurn: 3, assistant: false }),
+  })
+  assert.equal(patched.status, 200)
+  assert.equal(patched.data.settings.enabled, true)
+  assert.equal(patched.data.settings.maxPerTurn, 3)
+  assert.equal(patched.data.settings.assistant, false)
+
+  const first = store.add({
+    content: '记住：项目决定使用 PostgreSQL。',
+    kind: 'episodic',
+    source: 'hippocampus-auto-capture',
+    tags: ['auto-capture'],
+    metadata: { autoCapture: { review: 'pending', role: 'user' } },
+  })
+  const listed = await jsonFetch(base, '/api/captures', { headers: admin })
+  assert.equal(listed.status, 200)
+  assert.equal(listed.data.items.length, 1)
+
+  const approved = await jsonFetch(base, `/api/captures/${first.memory.id}/approve`, {
+    method: 'POST',
+    headers: admin,
+    body: JSON.stringify({ kind: 'semantic' }),
+  })
+  assert.equal(approved.status, 200)
+  assert.equal(approved.data.memory.kind, 'semantic')
+  assert.equal(approved.data.memory.metadata.autoCapture.review, 'approved')
+  assert.equal((await jsonFetch(base, '/api/captures', { headers: admin })).data.items.length, 0)
+
+  const second = store.add({
+    content: '记住：以后统一用 pnpm。',
+    kind: 'episodic',
+    source: 'hippocampus-auto-capture',
+    tags: ['auto-capture'],
+    metadata: { autoCapture: { review: 'pending', role: 'user' } },
+  })
+  const rejected = await jsonFetch(base, `/api/captures/${second.memory.id}/reject`, {
+    method: 'POST',
+    headers: admin,
+    body: '{}',
+  })
+  assert.equal(rejected.status, 200)
+  assert.equal(rejected.data.archived, true)
+})
+
 test('namespaces HTTP: list/create/rename/merge/delete with roles and stats', async () => {
   const { store, auth } = makeStore()
   const base = await startServer(store)

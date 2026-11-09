@@ -15,4 +15,7 @@ test('first-run setup and namespace management page load', async ({ page }) => {
   await page.getByRole('button', { name: '新建', exact: true }).click()
   await page.getByRole('button', { name: '创建', exact: true }).click()
   await expect(page.getByText('e2e-project', { exact: true }).first()).toBeVisible()
+
+  await page.getByText('捕获审阅', { exact: true }).first().click()
+  await expect(page.getByText('没有待审阅的捕获')).toBeVisible()
 })

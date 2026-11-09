@@ -39,6 +39,24 @@
         </section>
       </div>
 
+      <section v-if="isAdmin" class="hm-card">
+        <div class="hm-card-head">
+          <h2>自动捕获</h2>
+          <el-button type="primary" size="small" :loading="captureSaving" @click="saveCaptureSettings">保存</el-button>
+        </div>
+        <p class="hm-muted small">
+          默认关闭。开启后只从真实用户/助手/工具消息抽取少量候选，写入待审阅队列，不参与自动召回；可在「捕获审阅」批准或忽略。
+        </p>
+        <el-form label-position="top" class="hm-form">
+          <el-form-item label="启用自动捕获"><el-switch v-model="captureSettings.enabled" /></el-form-item>
+          <el-form-item label="写入空间（空 = 默认）"><el-input v-model="captureSettings.namespace" maxlength="64" placeholder="例如 project-a" /></el-form-item>
+          <el-form-item label="每条消息最多捕获"><el-input-number v-model="captureSettings.maxPerTurn" :min="1" :max="5" /></el-form-item>
+          <el-form-item label="助手结论"><el-switch v-model="captureSettings.assistant" /></el-form-item>
+          <el-form-item label="工具结果"><el-switch v-model="captureSettings.tools" /></el-form-item>
+        </el-form>
+        <p class="hm-muted small">LLM 抽取由 DSH 插件配置 <code>autoCaptureLlm</code> 控制；本页只控制本地规则开关。</p>
+      </section>
+
       <section class="hm-card hm-keys-card">
         <div class="hm-card-head">
           <h2>API keys</h2>
@@ -161,6 +179,8 @@ const secret = ref('')
 const fileInput = ref(null)
 const keyForm = reactive({ name: '', role: 'reader', namespaces: '*' })
 const backups = ref([])
+const captureSettings = ref({ enabled: false, namespace: '', maxPerTurn: 2, assistant: true, tools: true })
+const captureSaving = ref(false)
 const users = ref([])
 const passwordForm = reactive({ current: '', next: '', confirm: '' })
 const resetForm = reactive({ userId: '', password: '' })
@@ -185,11 +205,34 @@ async function load() {
       keys.value = data.keys
       users.value = (await api('/api/users')).users
       backups.value = canBackup.value ? (await api('/api/backups').catch(() => ({ backups: [] }))).backups : []
+      captureSettings.value = (await api('/api/capture/settings').catch(() => ({ settings: captureSettings.value }))).settings
     }
   } catch (error) {
     ElMessage.error(error.message)
   } finally {
     loading.value = false
+  }
+}
+
+async function saveCaptureSettings() {
+  captureSaving.value = true
+  try {
+    const data = await api('/api/capture/settings', {
+      method: 'PATCH',
+      body: {
+        enabled: captureSettings.value.enabled,
+        namespace: captureSettings.value.namespace,
+        maxPerTurn: captureSettings.value.maxPerTurn,
+        assistant: captureSettings.value.assistant,
+        tools: captureSettings.value.tools,
+      },
+    })
+    captureSettings.value = data.settings
+    ElMessage.success('自动捕获设置已保存')
+  } catch (error) {
+    ElMessage.error(error.message)
+  } finally {
+    captureSaving.value = false
   }
 }
 

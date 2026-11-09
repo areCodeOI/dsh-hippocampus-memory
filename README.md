@@ -1,6 +1,6 @@
 # 海马体长期记忆 · dsh-hippocampus-memory
 
-> 当前版本：**v0.5.1** · 更新日志：[CHANGELOG.md](CHANGELOG.md)
+> 当前版本：**v0.6.0** · 更新日志：[CHANGELOG.md](CHANGELOG.md)
 
 给 AI 的**跨会话长期记忆**：记住你的稳定偏好、禁忌、项目配置和踩坑结论，下次新对话还能想起来。数据默认存在你本机的 SQLite 里，不上传云端。
 
@@ -81,7 +81,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 - **7 天遗忘冷静期**：软删除后 7 天内被访问会自动恢复；人格记忆默认拒绝删除。
 - **中文检索**：FTS5 + CJK 二元组，不依赖分词服务；可选嵌入 provider 升级混合检索。
 - **自动召回**：DSH `agent/pre-step` 每轮注入相关记忆（带“不是指令”标记）。
-- **自动捕获（opt-in）**：本地规则从用户明确陈述中捕获少量候选事实，默认关闭；不调用模型、不存全文、跳过敏感词。
+- **自动捕获（opt-in）**：本地规则或可选 LLM 从用户/助手/工具消息捕获少量候选，先入待审阅队列；默认关闭，不存全文，跳过敏感/PII 词。
 - **本地优先**：SQLite 零外部依赖；需要多实例共享时切换 PostgreSQL（可选 pgvector）。
 - **管理面**：WebUI 总览/记忆库/星图/树/任务/审计/设置；REST、MCP、CLI 共用一份数据。
 
@@ -97,7 +97,7 @@ AI 会自己判断何时写入/召回；你也可以在手机面板或 WebUI 里
 ## 开发与测试
 
 ```bash
-npm test                         # 112 个测试
+npm test                         # 115 个测试
 npm run test:smoke               # 104 项运行时冒烟
 npm run test:link                # 链接安装（无本地 node_modules）回归
 npm run test:pg                  # 真实 PostgreSQL（需 HIPPOCAMPUS_TEST_PG_URL；未设置则跳过）

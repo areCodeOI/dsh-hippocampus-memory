@@ -7,10 +7,14 @@ import { MemoryStore } from '../lib/store.js'
 import { createNamespace } from '../lib/namespaces.js'
 import {
   AUTO_CAPTURE_SOURCE,
+  captureFromMessages,
   captureUserMessage,
+  collectCaptureSources,
   extractCaptureCandidates,
+  extractWithLlm,
   hasSensitiveData,
   latestUserText,
+  parseLlmFacts,
   shouldAutoCapture,
 } from '../lib/auto-capture.js'
 import { AUTO_RECALL_SOURCE } from '../lib/auto-recall.js'
@@ -97,4 +101,76 @@ test('auto-capture: ignores DSH auto-recall context and uses the latest real use
   })
   assert.equal(target.captured, 1)
   assert.equal(store.list({ namespace: 'capture-space' }).items[0].namespace, 'capture-space')
+})
+
+test('auto-capture: assistant/tool conclusions, review queue, approval and settings', async () => {
+  const store = makeStore()
+  const messages = [
+    { role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: '记住：项目决定使用 PostgreSQL。' }] },
+    { role: 'assistant', content: [{ type: 'text', text: '结论：项目决定使用 PostgreSQL，部署在周三。' }] },
+    { role: 'tool', content: [{ type: 'text', text: 'All tests passed (112).' }] },
+  ]
+  const sources = collectCaptureSources(messages)
+  assert.deepEqual(sources.map((source) => source.role), ['user', 'tool', 'assistant'])
+
+  const result = await captureFromMessages(store, messages, {
+    limit: 3,
+    includeAssistant: true,
+    includeTools: true,
+  })
+  assert.ok(result.captured >= 2)
+  const pending = store.listCaptures()
+  assert.ok(pending.items.length >= 2)
+  assert.ok(pending.items.every((memory) => memory.metadata.autoCapture.review === 'pending'))
+  assert.equal(store.stats().autoCapture.pending, pending.items.length)
+
+  const approved = store.approveCapture(pending.items[0].id, { kind: 'semantic' })
+  assert.equal(approved.memory.kind, 'semantic')
+  assert.equal(approved.memory.confirmed, true)
+  assert.equal(approved.memory.metadata.autoCapture.review, 'approved')
+  const rejected = store.rejectCapture(pending.items[1].id)
+  assert.equal(rejected.archived, true)
+  assert.equal(store.listCaptures().items.length, 0)
+
+  const settings = store.setAutoCaptureSettings({
+    enabled: true,
+    namespace: 'default',
+    maxPerTurn: 3,
+    assistant: false,
+    tools: true,
+    llm: false,
+  }, { enabled: false })
+  assert.equal(settings.enabled, true)
+  assert.equal(settings.maxPerTurn, 3)
+  assert.equal(settings.assistant, false)
+  assert.deepEqual(store.autoCaptureSettings({ enabled: false }), settings)
+})
+
+test('auto-capture: LLM output parsing and HTTP extraction fallback contract', async () => {
+  const parsed = parseLlmFacts(JSON.stringify([
+    { content: '我的项目使用 PostgreSQL', importance: 6, confidence: 0.7 },
+    { content: '我的密码是 hunter2' },
+    { content: '我对什么过敏？' },
+  ]))
+  assert.equal(parsed.length, 1)
+  assert.equal(parsed[0].content, '我的项目使用 PostgreSQL')
+
+  const http = await import('node:http')
+  const server = http.createServer((req, res) => {
+    res.setHeader('content-type', 'application/json')
+    res.end(JSON.stringify({ choices: [{ message: { content: '[{"content":"以后统一用 pnpm","importance":6}]' } }] }))
+  })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address()
+  try {
+    const facts = await extractWithLlm('记住：以后统一用 pnpm', {
+      endpoint: `http://127.0.0.1:${port}/v1`,
+      model: 'mock',
+      timeoutMs: 2000,
+    })
+    assert.equal(facts.length, 1)
+    assert.equal(facts[0].content, '以后统一用 pnpm')
+  } finally {
+    await new Promise((resolve) => server.close(resolve))
+  }
 })

@@ -369,7 +369,7 @@ CREATE TABLE embedding_index (
 | 想加的能力 | 建议改动 |
 | --- | --- |
 | 语义向量召回 | 新增 `embedding` 列/表；`search` 先向量候选再与词法分数融合 |
-| 自动捕获对话 | v0.5 已提供 opt-in `autoCapture`：在 `agent/pre-step` 用本地规则抽取最新用户消息的少量事实并调用 `store.add`；不调用模型、不存全文，敏感词整条跳过 |
+| 自动捕获对话 | v0.6 的 opt-in `autoCapture`：local rules 或可选 OpenAI 兼容 LLM 抽取用户/助手/工具候选，进入待审阅队列；不存全文，敏感/PII 整条跳过 |
 | 加密存储 | SQLCipher 或应用层加密 `content/summary`；FTS 需要同步加密策略 |
 | 多用户/权限 | 在 `namespace` 之上加 `owner` 字段与鉴权层 |
 | 图记忆 | 用 `entities` + 新 `memory_links` 表建实体关系图 |

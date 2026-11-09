@@ -13,7 +13,7 @@ import { resolveStorageConfig } from './lib/paths.js'
 import { VERSION } from './lib/constants.js'
 import { EmbeddingService } from './lib/embeddings.js'
 import { appendAutoRecall, extractUserText, shouldAutoRecall } from './lib/auto-recall.js'
-import { captureUserMessage } from './lib/auto-capture.js'
+import { captureFromMessages } from './lib/auto-capture.js'
 import { registerDshGoUi } from './lib/dsh-go-ui.js'
 import { createWebUiService } from './lib/webui.js'
 import { vectorWeightFromEnv } from './lib/scoring.js'
@@ -39,6 +39,29 @@ export const Config = Schema
         .max(5)
         .default(2)
         .description('每条用户消息最多自动捕获几条候选记忆'),
+      autoCaptureAssistant: Schema.boolean()
+        .default(true)
+        .description('自动捕获时也提取助手消息中的明确决定/结论'),
+      autoCaptureToolResults: Schema.boolean()
+        .default(true)
+        .description('自动捕获时也提取工具结果中的成功/失败结论'),
+      autoCaptureLlm: Schema.boolean()
+        .default(false)
+        .description('自动捕获优先使用 OpenAI 兼容 LLM 抽取；失败回退本地规则'),
+      autoCaptureLlmEndpoint: Schema.string()
+        .default('')
+        .description('LLM base URL，例如 http://127.0.0.1:11434/v1'),
+      autoCaptureLlmModel: Schema.string()
+        .default('')
+        .description('LLM 模型名；留空则只用本地规则'),
+      autoCaptureLlmApiKey: Schema.string()
+        .default('')
+        .description('LLM API key；建议改用 HIPPOCAMPUS_LLM_API_KEY 环境变量'),
+      autoCaptureLlmTimeoutMs: Schema.natural()
+        .min(1000)
+        .max(30000)
+        .default(8000)
+        .description('LLM 抽取超时'),
       injectPrompt: Schema.boolean().default(true).description('向系统提示词注入记忆使用规范'),
       autoReplay: Schema.boolean().default(true).description('后台自动回放/衰减/巩固'),
       retrievalLimit: Schema.natural().min(1).max(50).default(5).description('memory_search 默认返回条数'),
@@ -200,7 +223,18 @@ export function apply(ctx, config = {}) {
     'hippocampus: tool memory_webui',
   )
 
-  if (config.autoRecall !== false || config.autoCapture === true) {
+  const captureDefaults = {
+    enabled: config.autoCapture === true,
+    namespace: config.autoCaptureNamespace || '',
+    maxPerTurn: Math.min(5, Math.max(1, Number(config.autoCaptureMaxPerTurn) || 2)),
+    assistant: config.autoCaptureAssistant !== false,
+    tools: config.autoCaptureToolResults !== false,
+    llm: config.autoCaptureLlm === true,
+  }
+  // The HTTP/WebUI settings endpoint reads this so the live UI reflects the
+  // plugin config defaults before the admin saves an override in the DB.
+  store.autoCaptureDefaults = captureDefaults
+  if (config.autoRecall !== false || config.autoCapture === true || config.httpEnabled === true) {
     const captureSeen = new Map()
     ctx.on('agent/pre-step', async ({ messages, agent, step }, next) => {
       const decision = await next()
@@ -230,6 +264,9 @@ export function apply(ctx, config = {}) {
             const minScore = Math.max(0, Number(config.autoRecallMinScore) || 0.18)
             const memories = (result.memories ?? []).filter((memory) => {
               if ((memory.score ?? 0) < minScore) return false
+              // Auto-captured candidates stay out of automatic recall until a
+              // human approves them in the review queue.
+              if (memory.metadata?.autoCapture?.review === 'pending') return false
               if (recallNamespace !== '*') return true
               const policy = store.namespacePolicy(memory.namespace)
               return !policy.archived && policy.autoRecall !== false
@@ -254,14 +291,24 @@ export function apply(ctx, config = {}) {
           console.warn('[hippocampus] auto recall failed:', error instanceof Error ? error.message : String(error))
         }
       }
-      if (config.autoCapture === true) {
+      const captureSettings = store.autoCaptureSettings(captureDefaults)
+      if (captureSettings.enabled) {
         try {
-          const captured = captureUserMessage(store, messages, {
-            namespace: config.autoCaptureNamespace || '',
-            limit: Math.min(5, Math.max(1, Number(config.autoCaptureMaxPerTurn) || 2)),
+          const captured = await captureFromMessages(store, messages, {
+            namespace: captureSettings.namespace,
+            limit: captureSettings.maxPerTurn,
             sourceSession: agent?.id ?? null,
             step,
             seen: captureSeen,
+            includeAssistant: captureSettings.assistant,
+            includeTools: captureSettings.tools,
+            llm: {
+              enabled: captureSettings.llm,
+              endpoint: config.autoCaptureLlmEndpoint || '',
+              model: config.autoCaptureLlmModel || '',
+              apiKey: config.autoCaptureLlmApiKey || process.env.HIPPOCAMPUS_LLM_API_KEY || '',
+              timeoutMs: config.autoCaptureLlmTimeoutMs,
+            },
           })
           if (captured.captured > 0) {
             // Count only; never print captured content or secrets.
