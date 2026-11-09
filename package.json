@@ -26,6 +26,7 @@
     "locale/*.json",
     "icon.svg",
     "README.md",
+    "CHANGELOG.md",
     "docs/",
     "LICENSE",
     "web/",
@@ -56,6 +57,17 @@
     "agent"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/areCodeOI/dsh-hippocampus-memory.git"
+  },
+  "homepage": "https://github.com/areCodeOI/dsh-hippocampus-memory#readme",
+  "bugs": {
+    "url": "https://github.com/areCodeOI/dsh-hippocampus-memory/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=22.13"
   },
