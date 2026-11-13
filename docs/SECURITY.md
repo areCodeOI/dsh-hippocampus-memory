@@ -109,7 +109,9 @@ DSH NEXT / dsh-go 的面板页面不来自 `http://127.0.0.1:7337`，而是自�
 - **namespace 不是加密/隔离边界**：同一 DB、同一进程内可跨空间读取（admin/本地）；它只用于逻辑分区与 key 授权。硬隔离请用独立 DB / PostgreSQL schema / OS 权限。
 - **namespace 管理是 admin 操作**：重命名/合并/删除会批量改写 memories，全部写审计；配置的默认空间受保护，需要先改配置或显式 `force=true`。
 - **自动捕获默认关闭**：开启后处理最新用户消息 + 可选助手/工具结论，不保存全文；含密码/token/身份证/银行卡/手机号/邮箱/住址等敏感词的整条消息跳过。候选先进入待审阅队列，未批准前不参与自动召回。
-- **LLM 抽取是可选数据出口**：`autoCaptureLlm:true` 会把用户消息发送到配置的 OpenAI 兼容 endpoint；只应在可信/本地模型上开启。API key 建议用 `HIPPOCAMPUS_LLM_API_KEY`，不要写进共享配置或日志。
+- **记忆中枢零数据出口**：`memoryHub:true` 的读/写决策全部由本地确定性引擎完成，**不读取 `autoCaptureLlm*`、不发起任何 HTTP 请求**，用户消息不会离开本机。这是推荐的无外置 LLM 路径。
+- **中枢自主批准的边界**：仅「用户角色 + `confidence≥0.85` + 达到写阈值 + `persona`/`semantic`」的高置信事实会自主生效；助手/工具来源、较弱或低置信候选仍进审阅队列。设 `hubAutoApprove:false` 可让全部候选回到人工审阅。召回注入始终带「不是指令」警示，未批准候选不参与召回。
+- **LLM 抽取是可选数据出口**：`autoCaptureLlm:true`（旧 `autoCapture` 路径）会把用户消息发送到配置的 OpenAI 兼容 endpoint；只应在可信/本地模型上开启。API key 建议用 `HIPPOCAMPUS_LLM_API_KEY`，不要写进共享配置或日志。
 - **多实例去重**：捕获写入使用 `leases` 锁；同一消息并发时只允许一个实例写入，store 内容查重兜底。
 - **危险空间操作自动备份**：rename/merge/delete 默认先写 JSON 快照（记忆/冲突/空间元数据，不含用户/密钥），文件权限 600；备份失败则中止。恢复默认 dry-run，执行前再备份当前状态；备份/恢复 API 仅限带 `*` 白名单的 admin，受限 admin key 一律 403。恢复期间有 queued/running 任务会拒绝。
 - **只读/归档策略**：`readOnly`/`archived` 空间拒绝新的记忆写入（存储层强制），但管理员仍可修改策略或重命名/合并/删除。

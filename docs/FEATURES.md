@@ -17,6 +17,7 @@
 - **中文检索**：内置中英混排分词（CJK 二元组 + 英文单词）；SQLite 用 FTS5，PostgreSQL 用 `tsvector` + GIN，无需分词服务。
 - **四种接入方式共用一份数据**：DSH 插件、MCP 进程、HTTP 进程可以同时读写同一个 WAL 数据库（跨机器时共享 PostgreSQL）。
 - **可迁移**：`export` / `import` JSON 快照，换机器、备份、审计都方便。
+- **记忆中枢（推荐，默认关闭）**：`memoryHub:true` 时用纯本地、确定性的信号引擎自主决定「该记什么 / 怎么记 / 什么时候读」，**不调用任何外置 LLM 或网络服务**；自动分入四层、过滤寒暄/问句/密钥/PII，读写各有阈值。详见 [MEMORY-HUB.md](MEMORY-HUB.md)。
 - **自动召回**：DSH `agent/pre-step` 在每轮用户输入后自动检索相关记忆，并注入带来源标记的上下文；不再依赖模型主动想起调用 `memory_search`。
 - **自动捕获（实验性，默认关闭）**：`autoCapture:true` 时用本地规则或可选 LLM 从用户/助手/工具消息抽取少量候选，先进入待审阅队列；可批准为 semantic/persona/episodic 或忽略。WebUI 可实时开关/调空间/上限，LLM 失败回退规则；跳过敏感/PII，自动召回会忽略未审阅候选。
 - **可水平扩容**：`storage: postgres` + 共享 PostgreSQL；`SKIP LOCKED` 任务队列、跨进程回放租约、数据库级 `change_seq`；pgvector 精确向量检索失败时自动回退 SimHash。

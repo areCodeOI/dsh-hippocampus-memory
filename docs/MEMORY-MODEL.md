@@ -18,6 +18,8 @@
 4. **会话日志不是记忆**：记忆是 agent 主动编码的派生数据，不依赖聊天记录重放。
 5. **可审计**：每次增删改、合并、取代、回放都写 `events` 表；旧版本不物理删除（除了到期清除）。
 6. **确定性**：回放和巩固不依赖外部 LLM，同样输入得到同样结果；模型只负责决定「存什么」。
+7. **中枢可自主决策**：开启 `memoryHub` 后，「存什么 / 怎么分层 / 何时读」由本地确定性
+   信号引擎决定，全程不调用外置 LLM 或网络服务；见 [MEMORY-HUB.md](MEMORY-HUB.md)。
 
 ---
 
@@ -388,3 +390,14 @@ CREATE TABLE embedding_index (
 5. 配置 `autoRecall: false` 可关闭；`autoRecallLimit`、`autoRecallMaxChars`、`autoRecallMinScore`、`autoRecallNamespace` 可调。
 
 自动召回解决“有记忆但模型想不起来查”的问题；它不替代 `memory_search`：模型仍可在需要时主动检索更长/更精确的结果。写入侧也已在提示词和 `memory_add` 描述中明确“用户陈述稳定偏好/禁忌/关键配置时主动写入，不必等用户说记住”。
+
+## 记忆中枢（推荐）
+
+`memoryHub: true` 时，上面「自动召回」与「自动捕获」两条概率性路径被一条**本地确定性决策链**取代：
+
+- `lib/memory-hub.js` 是纯函数决策层（零 IO）：12 个上下文信号打分 → 读阈值 / 写阈值 →
+  候选分层（persona / semantic / episodic / buffer）与权重分配；
+- `lib/hub-runner.js` 是唯一执行层：按决策检索并注入带警示的上下文、通过审阅队列写入候选；
+- 不读取 `autoCaptureLlm*`、不发起任何 HTTP 请求，冲突仍交给 store 挂起而不覆盖。
+
+接口契约见 [HUB-API.md](HUB-API.md)，使用与排障见 [MEMORY-HUB.md](MEMORY-HUB.md)。

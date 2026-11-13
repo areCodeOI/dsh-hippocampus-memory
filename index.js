@@ -14,6 +14,8 @@ import { VERSION } from './lib/constants.js'
 import { EmbeddingService } from './lib/embeddings.js'
 import { appendAutoRecall, extractUserText, shouldAutoRecall } from './lib/auto-recall.js'
 import { captureFromMessages } from './lib/auto-capture.js'
+import { hubSystemPrompt, HUB_DEFAULTS } from './lib/memory-hub.js'
+import { runMemoryHub } from './lib/hub-runner.js'
 import { registerDshGoUi } from './lib/dsh-go-ui.js'
 import { createWebUiService } from './lib/webui.js'
 import { vectorWeightFromEnv } from './lib/scoring.js'
@@ -28,6 +30,20 @@ export const Config = Schema
       httpPort: Schema.natural().min(1).max(65535).default(7337).description('WebUI/REST 端口'),
       namespace: Schema.string().default('default').description('默认记忆空间，用于隔离不同项目/agent'),
       autoRecall: Schema.boolean().default(true).description('每轮对话前自动召回相关记忆'),
+      memoryHub: Schema.boolean()
+        .default(false)
+        .description('记忆中枢：纯本地确定性决策「该记什么/怎么记/什么时候读」，不调用任何外置 LLM 或网络服务；开启后取代旧的自动召回/自动捕获路径'),
+      hubReadThreshold: Schema.number().min(0).max(1).default(HUB_DEFAULTS.readThreshold).description('中枢读决策阈值：上下文信号分低于此值不检索'),
+      hubWriteThreshold: Schema.number().min(0).max(1).default(HUB_DEFAULTS.writeThreshold).description('中枢写决策阈值：候选分低于此值不写入'),
+      hubCapture: Schema.boolean().default(true).description('中枢是否自动写入候选记忆（仍进审阅队列）'),
+      hubAutoApprove: Schema.boolean()
+        .default(true)
+        .description('高置信的用户事实（persona/semantic、confidence≥0.85）由中枢自主批准并立即生效；关闭后所有候选都进审阅队列'),
+      hubCaptureMaxPerTurn: Schema.natural().min(1).max(5).default(HUB_DEFAULTS.captureMaxCandidates).description('中枢每轮最多写入几条候选记忆'),
+      hubRecallLimit: Schema.natural().min(1).max(8).default(HUB_DEFAULTS.recallDefaultLimit).description('中枢每轮最多召回几条记忆'),
+      hubRecallMaxChars: Schema.natural().min(400).max(4000).default(HUB_DEFAULTS.recallMaxChars).description('中枢注入上下文的最大字符数'),
+      hubRecallMinScore: Schema.number().min(0).max(1).default(HUB_DEFAULTS.recallMinScore).description('中枢召回结果的最低相关分'),
+      hubNamespace: Schema.string().default('').description('中枢写入/召回的空间；留空沿用 autoRecallNamespace/autoCaptureNamespace/default'),
       autoCapture: Schema.boolean()
         .default(false)
         .description('实验性：从用户消息中用本地规则自动捕获少量稳定事实（不调用模型、不存全文、默认关闭）'),
@@ -234,11 +250,63 @@ export function apply(ctx, config = {}) {
   // The HTTP/WebUI settings endpoint reads this so the live UI reflects the
   // plugin config defaults before the admin saves an override in the DB.
   store.autoCaptureDefaults = captureDefaults
-  if (config.autoRecall !== false || config.autoCapture === true || config.httpEnabled === true) {
+  // Same idea for the memory hub: these are the startup fallback values. A
+  // saved row in the DB (WebUI / DSH settings) takes precedence every turn.
+  store.hubDefaults = {
+    enabled: config.memoryHub === true,
+    readThreshold: Number(config.hubReadThreshold ?? HUB_DEFAULTS.readThreshold),
+    writeThreshold: Number(config.hubWriteThreshold ?? HUB_DEFAULTS.writeThreshold),
+    capture: config.hubCapture !== false,
+    autoApprove: config.hubAutoApprove !== false,
+    captureMaxPerTurn: Number(config.hubCaptureMaxPerTurn ?? HUB_DEFAULTS.captureMaxCandidates),
+    recallLimit: Number(config.hubRecallLimit ?? HUB_DEFAULTS.recallDefaultLimit),
+    recallMaxChars: Number(config.hubRecallMaxChars ?? HUB_DEFAULTS.recallMaxChars),
+    recallMinScore: Number(config.hubRecallMinScore ?? HUB_DEFAULTS.recallMinScore),
+    namespace: config.hubNamespace || '',
+  }
+  if (config.autoRecall !== false || config.autoCapture === true || config.memoryHub === true || config.httpEnabled === true) {
     const captureSeen = new Map()
     ctx.on('agent/pre-step', async ({ messages, agent, step }, next) => {
       const decision = await next()
       if (decision.kind !== 'enter' || !Array.isArray(messages) || messages.length === 0) return decision
+      // Live settings: the WebUI/DSH can enable or disable the hub in the DB
+      // without editing the profile patch or restarting. When no override is
+      // saved, the startup Config values remain in charge.
+      let hubSettings
+      try {
+        hubSettings = store.hubSettings(store.hubDefaults)
+      } catch {
+        hubSettings = store.hubDefaults
+      }
+      // Memory hub: one offline decision (read + write) replaces both legacy
+      // paths. It never calls an external LLM, an embedding API or the network.
+      if (hubSettings?.enabled === true) {
+        const logger = (message) => console.warn(message)
+        const hubConfig = {
+          ...config,
+          memoryHub: true,
+          hubReadThreshold: hubSettings.readThreshold,
+          hubWriteThreshold: hubSettings.writeThreshold,
+          hubCapture: hubSettings.capture,
+          hubAutoApprove: hubSettings.autoApprove,
+          hubCaptureMaxPerTurn: hubSettings.captureMaxPerTurn,
+          hubRecallLimit: hubSettings.recallLimit,
+          hubRecallMaxChars: hubSettings.recallMaxChars,
+          hubRecallMinScore: hubSettings.recallMinScore,
+          hubNamespace: hubSettings.namespace,
+        }
+        const result = runMemoryHub(store, messages, decision, hubConfig, {
+          sourceSession: agent?.id ?? null,
+          step,
+          seen: captureSeen,
+          logger,
+        })
+        if (result.capture.captured > 0) {
+          // Count only; never log captured content.
+          console.info(`[hippocampus] memory-hub stored ${result.capture.captured} candidate(s)`)
+        }
+        return result.decision
+      }
       let finalDecision = decision
       const text = extractUserText(messages)
       if (config.autoRecall !== false && shouldAutoRecall(text)) {
@@ -329,7 +397,18 @@ export function apply(ctx, config = {}) {
           sctx.systemPrompt.section({
             name: 'hippocampus:memory-protocol',
             order: 515,
-            text: memorySystemPrompt(resolveLanguage(config)),
+            text: (() => {
+              const base = memorySystemPrompt(resolveLanguage(config))
+              let live
+              try {
+                live = store.hubSettings(store.hubDefaults)?.enabled === true
+              } catch {
+                live = false
+              }
+              return config.memoryHub === true || live
+                ? `${base}\n\n${hubSystemPrompt(resolveLanguage(config) === 'en' ? 'en' : 'zh')}`
+                : base
+            })(),
           }),
         'hippocampus: memory protocol prompt',
       )

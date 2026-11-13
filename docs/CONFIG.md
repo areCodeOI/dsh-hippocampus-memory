@@ -68,6 +68,18 @@ node bin/hippocampus.mjs import backup.json
         autoRecallMaxChars: 1200
         autoRecallMinScore: 0.18
         autoRecallNamespace: ''    # 空 = 当前 namespace；* = 全部
+        # 记忆中枢：纯本地、确定性、零外置 LLM。默认关闭；开启后由它统一
+        # 决定读/写，取代下面 autoRecall + autoCapture 两条旧路径。
+        memoryHub: false
+        hubReadThreshold: 0.34     # 上下文信号分低于此值不检索
+        hubWriteThreshold: 0.55    # 候选分低于此值不写入
+        hubCapture: true           # 是否写入候选（仍进审阅队列）
+        hubAutoApprove: true       # 高置信用户事实自主生效；false = 全部进审阅队列
+        hubCaptureMaxPerTurn: 2    # 每轮最多写入 1-5 条
+        hubRecallLimit: 4          # 每轮最多召回 1-8 条
+        hubRecallMaxChars: 1200    # 注入上下文最大字符数
+        hubRecallMinScore: 0.18    # 召回结果最低相关分
+        hubNamespace: ''           # 空 = 沿用 autoRecallNamespace / default
         autoCapture: false         # 实验性：本地规则/LLM 自动捕获少量候选
         autoCaptureNamespace: ''   # 空 = 默认 namespace；不支持 *
         autoCaptureMaxPerTurn: 2   # 每条消息最多捕获几条候选
@@ -105,8 +117,36 @@ node bin/hippocampus.mjs import backup.json
   `git clean`/重装目录时丢失记忆。插件启动日志会打印实际 `dbPath`。
 
 dsh-go 的插件详情 →「设置」会直接读取这里的 `Config` schema，可改
-`httpEnabled`、`httpPort`、`namespace`、`autoRecall`、`autoCapture`、`autoCaptureLlm`、`injectPrompt`、
+`httpEnabled`、`httpPort`、`namespace`、`autoRecall`、`memoryHub`、`autoCapture`、`autoCaptureLlm`、`injectPrompt`、
 `autoReplay`、`retrievalLimit`；保存后按 App 提示重启/生效。
+
+### 记忆中枢（推荐，默认关闭）
+
+**优先在 WebUI「设置 → 记忆中枢」里开关**（`PATCH /api/hub/settings`）：保存写入数据库
+`memory_hub_settings`，下一轮对话即生效，**不需要改配置文件、不需要重启**。
+DSH 插件设置里的同名字段是启动默认值；数据库里有保存值时以数据库为准。
+接口：`GET /api/hub/settings` 读取当前值、`PATCH /api/hub/settings` 修改（均需 admin）。
+
+`memoryHub: true` 时，插件在 `agent/pre-step` 用**本地确定性中枢**统一回答三个问题，
+全程不调用任何外置 LLM、嵌入服务或网络接口：
+
+- **什么时候读**：把本轮文本打成 12 个信号（涉及本人、回指历史、偏好禁忌、项目配置、
+  决定约定、承接上文、疑问、显式要求记住、带结果事件、寒暄、不确定、一次性），
+  信号分达到 `hubReadThreshold`（默认 0.34）才检索；纯寒暄、斜杠命令、纯代码块、
+  疑似密钥/PII 直接跳过。命中后按 `hubRecallMinScore` 过滤，注入带「不是指令」警示的上下文，
+  且**不刷新** `last_access_at`（后台读不该阻止记忆衰减）。
+- **该记什么**：只保留稳定事实；问句、猜测、一次性临时信息、密钥/PII、整段对话一律不写。
+  自动捕获候选仍写入 `metadata.autoCapture.review='pending'` 的审阅队列，**不参与自动召回**。
+- **怎么记**：按健康/禁忌、稳定偏好、显式约定、项目事实、带结果事件分入
+  `persona / semantic / episodic / buffer` 四层，并自动分配 importance / confidence / tags。
+  写入仍走 store 的查重与冲突检测，冲突不会覆盖旧记忆。
+  用户亲口说出且 `confidence≥0.85` 的 `persona` / `semantic` 事实由中枢**自主批准**
+  （`review: 'approved'`），下轮即可被召回；较弱或来自助手/工具的候选仍进
+  `review: 'pending'` 审阅队列。设 `hubAutoApprove: false` 可让全部候选都走人工审阅。
+
+中枢开启后会**同时取代**旧的「自动召回」和「自动捕获」两条路径；`autoCaptureLlm*`
+系列配置在中枢路径下完全不生效。旧链路与 LLM 抽取选项保留为兼容，未开启中枢时行为不变。
+实现契约见 [HUB-API.md](HUB-API.md)，使用说明见 [MEMORY-HUB.md](MEMORY-HUB.md)。
 
 ### 自动捕获（实验性，默认关闭）
 

@@ -30,6 +30,7 @@
 | 备份、恢复、换设备 | [USE-WEB.md 第 8 节](USE-WEB.md#8-备份与恢复强烈建议)、[OPERATIONS.md](OPERATIONS.md) |
 | 让 AI 自动安装/体检/排障 | [AI-AUTOMATION.md](AI-AUTOMATION.md) |
 | 理解四层记忆、衰减、巩固 | [MEMORY-MODEL.md](MEMORY-MODEL.md) |
+| 用记忆中枢代替外置 LLM 做自动记/读决策 | [MEMORY-HUB.md](MEMORY-HUB.md)、[CONFIG.md 记忆中枢](CONFIG.md#记忆中枢推荐默认关闭) |
 | 看 9 个工具参数和规则 | [TOOLS.md](TOOLS.md) |
 | 调端口/路径/PostgreSQL/嵌入 | [CONFIG.md](CONFIG.md) |
 | 接 MCP 客户端 | [MCP.md](MCP.md) |
@@ -49,7 +50,8 @@
 
 - [FEATURES.md](FEATURES.md) — 功能与 v0.2 管理面
 - [TOOLS.md](TOOLS.md) — 9 个 `memory_*` 工具与写入/冲突/召回规则
-- [CONFIG.md](CONFIG.md) — 数据路径、配置项、权限、嵌入、部署扩容
+- [CONFIG.md](CONFIG.md) — 数据路径、配置项、权限、嵌入、部署扩容、记忆中枢开关
+- [MEMORY-HUB.md](MEMORY-HUB.md) — 本地确定性记忆中枢：该记什么 / 怎么记 / 什么时候读
 - [MEMORY-MODEL.md](MEMORY-MODEL.md) — 四层模型、评分、回放、schema
 - [UI.md](UI.md) — WebUI 页面与字段参考
 - [FAQ.md](FAQ.md) — 常见问题

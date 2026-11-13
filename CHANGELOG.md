@@ -2,6 +2,41 @@
 
 本项目遵循语义化版本；数据库 schema 变更会单独标注。
 
+## 0.7.0 — 2026-11-14
+
+### Added
+
+- **记忆中枢（默认关闭，`memoryHub: true` 开启）**：纯本地、确定性、零外置 LLM 的决策层，
+  自主决定「该记什么 / 怎么记 / 什么时候读」。核心在 `lib/memory-hub.js`，执行层在
+  `lib/hub-runner.js`，接口契约见 `docs/HUB-API.md`，使用说明见 `docs/MEMORY-HUB.md`。
+- **12 个上下文信号 + 读写双阈值**：`hubReadThreshold`（默认 0.34）控制何时检索，
+  `hubWriteThreshold`（默认 0.55）控制是否写入；寒暄/命令/纯代码/PII/猜测/问句自动跳过。
+- **自动分层**：候选按健康禁忌、稳定偏好、显式约定、项目事实、带结果事件分入
+  `persona / semantic / episodic / buffer` 四层并自动分配 importance / confidence。
+- **自主生效**：用户亲口说出且 `confidence≥0.85` 的 `persona` / `semantic` 事实由中枢
+  自主批准（`review: 'approved'`）并可在下一轮被召回；较弱或机器来源候选仍进审阅队列。
+  可用 `hubAutoApprove: false` 关闭该行为。
+- **WebUI 实时开关（免重启、免改文件）**：设置页新增「记忆中枢」卡片，
+  可开关中枢、自动写入、自主批准，并调读/写阈值、每轮上限、召回条数与空间；
+  保存写入数据库 meta `memory_hub_settings`，下一轮对话立即生效。
+  新增 `GET/PATCH /api/hub/settings`（admin）。
+- **设置优先级**：数据库已保存值 > DSH 启动配置 > `HUB_DEFAULTS`。
+  `lib/index.js` 的 pre-step 每轮读取实时设置，因此界面改动无需重启。
+- **新配置项**：`memoryHub`、`hubReadThreshold`、`hubWriteThreshold`、`hubCapture`、
+  `hubAutoApprove`、`hubCaptureMaxPerTurn`、`hubRecallLimit`、`hubRecallMaxChars`、
+  `hubRecallMinScore`、`hubNamespace`；`cordis.patch.yml` 与 `docs/CONFIG.md` 同步。
+  DSH 设置页可直接编辑这些字段（作为启动默认值）。
+- 中枢开启时向系统提示词追加一段「记忆中枢」说明；工具清单保持不变（仍为 10 个）。
+- `writeCandidates` 新增可选 `decorate(candidate)` 钩子并导出；默认行为完全不变。
+- 新增 `test/memory-hub.test.mjs`（纯决策单测）与 `test/hub-runner.test.mjs`（读写集成测试），
+  并注册进 `test/all.test.mjs`。
+
+### Notes
+
+- 中枢路径不读取 `autoCaptureLlm*` 配置，不发起任何 HTTP 请求；旧 LLM 抽取选项保留为兼容。
+- 自动捕获候选继续进入审阅队列（`review: 'pending'`），批准前不参与自动召回。
+- 数据库 schema 不变；中枢写入沿用既有 store 查重、冲突检测与跨进程 `leases` 锁。
+
 ## 0.6.1 — 2026-11-09
 
 ### Fixed

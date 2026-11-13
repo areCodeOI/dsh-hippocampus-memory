@@ -233,6 +233,47 @@ test('plugin: auto-capture stays off by default', () => {
   assert.equal(handlers.get('agent/pre-step'), undefined)
 })
 
+test('plugin: memoryHub replaces the legacy pre-step path without an LLM', async () => {
+  const { ctx, tools, sections, handlers } = fakeContext()
+  const dbPath = tempDb()
+  apply(ctx, {
+    dbPath,
+    autoReplay: false,
+    injectPrompt: true,
+    promptLanguage: 'zh',
+    memoryHub: true,
+    hubWriteThreshold: 0,
+  })
+  // Tools are unchanged; the prompt gains the hub section.
+  assert.deepEqual([...tools.keys()], [...TOOL_NAMES, 'memory_webui'])
+  assert.equal(sections.length, 1)
+  assert.match(sections[0].text, /记忆中枢/)
+  assert.match(sections[0].text, /不调用外置 LLM/)
+
+  const handler = handlers.get('agent/pre-step')
+  assert.equal(typeof handler, 'function')
+  const user = {
+    id: 'u-hub',
+    role: 'user',
+    source: { kind: 'user' },
+    content: [{ type: 'text', text: '记住：我的项目统一使用 PostgreSQL 16，不要用 MySQL。' }],
+  }
+  const decision = await handler(
+    { messages: [user], step: 1, agent: { id: 'agent-hub' } },
+    async () => ({ kind: 'enter', messages: [user] }),
+  )
+  assert.equal(decision.kind, 'enter')
+
+  const db = new DatabaseSync(dbPath)
+  const rows = db.prepare('SELECT content, source, tags, metadata FROM memories').all()
+  db.close()
+  assert.ok(rows.length >= 1)
+  assert.ok(rows.every((row) => row.source === 'hippocampus-auto-capture'))
+  assert.ok(rows.every((row) => row.tags.includes('memory-hub')))
+  assert.ok(rows.some((row) => JSON.parse(row.metadata ?? '{}')?.memoryHub?.llm === false))
+  assert.ok(rows.some((row) => JSON.parse(row.metadata ?? '{}')?.autoCapture?.review === 'approved'))
+})
+
 test('plugin: can disable prompt injection while keeping the tools', () => {
   const { ctx, tools, sections } = fakeContext()
   apply(ctx, { dbPath: tempDb(), autoReplay: false, injectPrompt: false })

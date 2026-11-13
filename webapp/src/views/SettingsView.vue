@@ -41,6 +41,42 @@
 
       <section v-if="isAdmin" class="hm-card">
         <div class="hm-card-head">
+          <h2>记忆中枢</h2>
+          <el-tag size="small" :type="hubSettings.enabled ? 'success' : 'info'" effect="plain">
+            {{ hubSettings.enabled ? '本地确定性 · 已启用' : '关闭' }}
+          </el-tag>
+          <el-button type="primary" size="small" :loading="hubSaving" @click="saveHubSettings">保存</el-button>
+        </div>
+        <p class="hm-muted small">
+          纯本地决策「该记什么 / 怎么记 / 什么时候读」，不调用外置 LLM、不发网络请求。
+          开启后取代旧的自动召回与自动捕获路径；保存后立即生效，无需重启或修改配置文件。
+        </p>
+        <el-form label-position="top" class="hm-form">
+          <el-form-item label="启用记忆中枢"><el-switch v-model="hubSettings.enabled" /></el-form-item>
+          <el-form-item label="自动写入候选"><el-switch v-model="hubSettings.capture" /></el-form-item>
+          <el-form-item label="高置信用户事实自主生效"><el-switch v-model="hubSettings.autoApprove" /></el-form-item>
+          <el-form-item label="读阈值（0-1，越高越保守）">
+            <el-input-number v-model="hubSettings.readThreshold" :min="0" :max="1" :step="0.05" :precision="2" />
+          </el-form-item>
+          <el-form-item label="写阈值（0-1，越高越保守）">
+            <el-input-number v-model="hubSettings.writeThreshold" :min="0" :max="1" :step="0.05" :precision="2" />
+          </el-form-item>
+          <el-form-item label="每轮最多写入"><el-input-number v-model="hubSettings.captureMaxPerTurn" :min="1" :max="5" /></el-form-item>
+          <el-form-item label="每轮最多召回"><el-input-number v-model="hubSettings.recallLimit" :min="1" :max="8" /></el-form-item>
+          <el-form-item label="注入上下文最大字符数"><el-input-number v-model="hubSettings.recallMaxChars" :min="400" :max="4000" :step="100" /></el-form-item>
+          <el-form-item label="召回最低相关分">
+            <el-input-number v-model="hubSettings.recallMinScore" :min="0" :max="1" :step="0.02" :precision="2" />
+          </el-form-item>
+          <el-form-item label="写入/召回空间（空 = 默认）"><el-input v-model="hubSettings.namespace" maxlength="64" placeholder="例如 project-a" /></el-form-item>
+        </el-form>
+        <p class="hm-muted small">
+          关闭后回到旧的「自动召回 / 自动捕获」路径。DSH 设置页的 <code>memoryHub</code> 是启动默认值；
+          此处保存到数据库后优先级更高。详见 <code>docs/MEMORY-HUB.md</code>。
+        </p>
+      </section>
+
+      <section v-if="isAdmin" class="hm-card">
+        <div class="hm-card-head">
           <h2>自动捕获</h2>
           <el-button type="primary" size="small" :loading="captureSaving" @click="saveCaptureSettings">保存</el-button>
         </div>
@@ -181,6 +217,19 @@ const keyForm = reactive({ name: '', role: 'reader', namespaces: '*' })
 const backups = ref([])
 const captureSettings = ref({ enabled: false, namespace: '', maxPerTurn: 2, assistant: true, tools: true })
 const captureSaving = ref(false)
+const hubSettings = ref({
+  enabled: false,
+  readThreshold: 0.34,
+  writeThreshold: 0.55,
+  capture: true,
+  autoApprove: true,
+  captureMaxPerTurn: 2,
+  recallLimit: 4,
+  recallMaxChars: 1200,
+  recallMinScore: 0.18,
+  namespace: '',
+})
+const hubSaving = ref(false)
 const users = ref([])
 const passwordForm = reactive({ current: '', next: '', confirm: '' })
 const resetForm = reactive({ userId: '', password: '' })
@@ -206,6 +255,7 @@ async function load() {
       users.value = (await api('/api/users')).users
       backups.value = canBackup.value ? (await api('/api/backups').catch(() => ({ backups: [] }))).backups : []
       captureSettings.value = (await api('/api/capture/settings').catch(() => ({ settings: captureSettings.value }))).settings
+      hubSettings.value = (await api('/api/hub/settings').catch(() => ({ settings: hubSettings.value }))).settings
     }
   } catch (error) {
     ElMessage.error(error.message)
@@ -233,6 +283,33 @@ async function saveCaptureSettings() {
     ElMessage.error(error.message)
   } finally {
     captureSaving.value = false
+  }
+}
+
+async function saveHubSettings() {
+  hubSaving.value = true
+  try {
+    const data = await api('/api/hub/settings', {
+      method: 'PATCH',
+      body: {
+        enabled: hubSettings.value.enabled,
+        readThreshold: hubSettings.value.readThreshold,
+        writeThreshold: hubSettings.value.writeThreshold,
+        capture: hubSettings.value.capture,
+        autoApprove: hubSettings.value.autoApprove,
+        captureMaxPerTurn: hubSettings.value.captureMaxPerTurn,
+        recallLimit: hubSettings.value.recallLimit,
+        recallMaxChars: hubSettings.value.recallMaxChars,
+        recallMinScore: hubSettings.value.recallMinScore,
+        namespace: hubSettings.value.namespace,
+      },
+    })
+    hubSettings.value = data.settings
+    ElMessage.success('记忆中枢设置已保存，立即生效')
+  } catch (error) {
+    ElMessage.error(error.message)
+  } finally {
+    hubSaving.value = false
   }
 }
 

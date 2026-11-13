@@ -50,6 +50,18 @@
         pgPoolMax: 4
         graphProvider: projection
         autoRecall: true
+        # 记忆中枢：纯本地确定性决策（不调用外置 LLM）；开启后取代旧的
+        # autoRecall/autoCapture 两条路径。默认关闭以保持既有行为。
+        memoryHub: false
+        hubReadThreshold: 0.34
+        hubWriteThreshold: 0.55
+        hubCapture: true
+        hubAutoApprove: true     # 高置信用户事实自主生效，无需人工批准
+        hubCaptureMaxPerTurn: 2
+        hubRecallLimit: 4
+        hubRecallMaxChars: 1200
+        hubRecallMinScore: 0.18
+        hubNamespace: ''
         autoRecallLimit: 4
         autoRecallMaxChars: 1200
         autoRecallMinScore: 0.18
